@@ -5,5 +5,5 @@ Depends: ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://sebastien.godard.pagesperso-orange.fr
+Source: https://sebastien.godard.pagesperso-orange.fr
 Maintainer: jcard

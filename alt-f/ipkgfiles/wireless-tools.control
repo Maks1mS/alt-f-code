@@ -5,5 +5,5 @@ Depends: ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/Tools.html
+Source: https://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/Tools.html
 Maintainer: jcard

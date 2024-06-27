@@ -7,18 +7,20 @@ write_header "Fixed IP Hosts Setup"
 CONF_HOSTS=/etc/hosts
 
 cat<<-EOF
-	<form name=hosts action=hosts_proc.cgi method=post>
+	<form name=hosts action=hosts_proc.cgi method="post">
 	<table><tr><th>Name</th><th>IP</th></tr>
 EOF
 
 cnt=0
-while read ip fname nm; do
+while read ip fname nm nm2; do
 	if test -z "$ip" -o "${ip#\#}" != "$ip" -o \
 		"$fname" = "localhost" -o "$nm" = "localhost" ; then continue; fi
 
 	#if echo "$ip" | grep -q ':'; then
-		if test -z "$nm" -a -n "$fname"; then nm=$fname; fname=""; fi
+		if test -z "$nm" -a -n "$fname"; then nm=$fname; fi
 	#fi
+	
+	if test -n "$nm2" -a "${nm%.local}" != "$nm"; then nm=$nm2; fi
 	
 	mac=""; lease=""
 	echo "<tr><td><input size=12 type=text name=knm_$cnt value=$nm></td>

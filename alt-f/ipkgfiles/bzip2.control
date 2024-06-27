@@ -5,5 +5,5 @@ Depends: ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://sources.redhat.com/bzip2
+Source: https://sources.redhat.com/bzip2
 Maintainer: jcard

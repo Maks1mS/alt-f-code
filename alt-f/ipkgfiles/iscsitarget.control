@@ -5,5 +5,5 @@ Depends: ipkg, kernel-modules
 Architecture: arm
 Priority: optional
 Section: disktools
-Source: http://sourceforge.net/projects/iscsitarget
+Source: https://sourceforge.net/projects/iscsitarget
 Maintainer: jcard

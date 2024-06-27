@@ -5,5 +5,5 @@ Depends: ipkg, kernel-modules
 Architecture: arm
 Priority: optional
 Section: networking
-Source: http://bridge.sourceforge.net/
+Source: https://sourceforge.net/projects/bridge
 Maintainer: jcard

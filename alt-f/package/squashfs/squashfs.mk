@@ -4,7 +4,7 @@
 #
 #############################################################
 
-SQUASHFS_VERSION = 4.2
+SQUASHFS_VERSION = 4.5
 SQUASHFS_SITE = $(BR2_SOURCEFORGE_MIRROR)/project/squashfs/squashfs/squashfs$(SQUASHFS_VERSION)
 SQUASHFS_SOURCE = squashfs$(SQUASHFS_VERSION).tar.gz
 
@@ -26,7 +26,7 @@ $(SQUASHFS_HOOK_POST_EXTRACT):
 	chmod +x $(SQUASHFS_DIR)/$(SQUASHFS_SUBDIR)/configure
 	sed -i -e 's/#XZ_SUPPORT = 1/XZ_SUPPORT = 1/' \
 	-e 's/#LZMA_XZ_SUPPORT = .*/LZMA_XZ_SUPPORT = 1/' \
-	-e 's/INSTALL_DIR/DESTDIR/' \
+	-e 's/INSTALL_DIR/DESTDIR/g' \
 	$(SQUASHFS_DIR)/$(SQUASHFS_SUBDIR)/Makefile
 	touch $@
 endif
@@ -44,7 +44,7 @@ $(SQUASHFS_HOST_HOOK_POST_EXTRACT):
 	chmod +x $(SQUASHFS_HOST_DIR)/$(SQUASHFS_SUBDIR)/configure
 	sed -i -e 's/#XZ_SUPPORT = 1/XZ_SUPPORT = 1/' \
 	-e 's/#LZMA_XZ_SUPPORT = .*/LZMA_XZ_SUPPORT = 1/' \
-	-e 's/INSTALL_DIR/DESTDIR/' \
+	-e 's/INSTALL_DIR/DESTDIR/g' \
 	$(SQUASHFS_HOST_DIR)/$(SQUASHFS_SUBDIR)/Makefile
 	touch $@
 endif

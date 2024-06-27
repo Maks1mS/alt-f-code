@@ -5,38 +5,79 @@ check_cookie
 read_args
 
 CONFF=/etc/ipkg.conf
+UBIROOT=/rootmnt/ubiimage
+IPKGDIR=/usr/lib/ipkg
 
 # FIXME: When updating packages with libraries, if the library is in use by some program
-# the update/upgrade might fail without notice.
+# the upgrade might fail without notice.
 # The fast cure is to always stop all services before updating or upgrading packages.
 
 #debug
 #set -x
 
 change_feeds() {
-	mv $CONFF $CONFF-
-	for i in $(seq 1 $nfeeds); do
-		eval $(echo feed=\$feed_$i)
+	sed -ir '/^src |#!#src /d' $CONFF
+	for i in $(seq $nfeeds -1 1); do
+		eval $(echo label="\$lbl_$i")
+		if test -z "$label"; then label="feed_$i"; fi
+		label=$(httpd -d "$label")
+		label=$(echo "$label" | tr ' ' '-')
+		
+		eval $(echo feed="\$feed_$i")
 		if test -z "$feed"; then continue; fi
 		feed=$(httpd -d "$feed")
+		
 		eval $(echo cmt=\$dis_$i)
 		if test -n "$cmt"; then cmt="#!#"; fi
-		echo "${cmt}src feed_$i $feed" >> $CONFF
+		sed -i "1i ${cmt}src $label $feed" $CONFF
 	done
-	echo "dest /Alt-F /Alt-F" >> $CONFF
+}
+
+# list all directly (present in the pkg Depends:) or indirectly (depended on the directly dependent) pkgs.
+# if a given package appears more than once in the Depends: of all packages,
+# than that pkg can't be removed, as it is depended-upon other installed package.
+
+depended() {
+    while test -n "$1"; do
+        p=$1; shift
+        if test "$p" = "Depends:" -o $p = "ipkg"; then continue; fi
+        cnt=$(grep -E "Depends:.*$p([^-]|$)" /usr/lib/ipkg/status | wc -l)
+        if test $cnt -gt 1; then continue; fi
+		echo $p
+		depended $(sed -n '/^Package: '$p'$/,/^Depends:/{/Depends:/s/,//gp}' /usr/lib/ipkg/status)
+    done
 }
 
 ipkg_cmd() {
-	if test $1 = "-install"; then
+	icmd=$1
+	pkg=$2
+	
+	if test $icmd = "-install"; then
 		write_header "Installing Alt-F"
-	elif test $1 = "install"; then
-		write_header "Installing Alt-F package $2"
+
+	elif test $icmd = "install"; then
+		write_header "Installing Alt-F package $pkg"
+		if test "$instdest" = "root"; then opt_dest="-dest root"
+		elif test "$instdest" = "flash"; then opt_dest="-dest flash"
+		else msg "Invalid instalation destination \"$instdest\""
+		fi
 		opts="-force-defaults"
-	elif test $1 = "upgrade"; then
-		write_header "Upgrading all Alt-F packages"
+		
+	elif test $icmd = "upgrade"; then
+		write_header "Upgrading Alt-F packages $pkg"
 		opts="-force-defaults"
-	elif test $1 = "update"; then
+		
+	elif test $icmd = "update"; then
 		write_header "Updating Alt-F packages list"
+		
+	elif test $icmd = "remove"; then
+		write_header "Removing Alt-F package $pkg"		
+		if test "$force_remove" = "yes"; then opts="-force-depends"; fi
+		if test "$rec_remove" = "yes"; then opts="-recursive"; fi
+		if test "$orphan_remove" = "yes"; then
+			npkg=$(depended $pkg)
+			if test -n "$npkg"; then pkg=$npkg; fi
+		fi
 	fi
 
 	cat<<-EOF
@@ -48,8 +89,9 @@ ipkg_cmd() {
 	EOF
 
 	echo "<pre>"
-
-	ipkg $opts $1 $2
+echo "ipkg $opt_dest $opts $icmd $pkg"
+echo
+	ipkg $opt_dest $opts $icmd $pkg
 	if test $? = 0; then
 		cat<<-EOF
 			</pre>
@@ -59,7 +101,7 @@ ipkg_cmd() {
 			</script>
 		EOF
 	else
-		if test $1 = "-install"; then
+		if test $icmd = "-install"; then
 			ipkg -clean
 		fi
 
@@ -75,15 +117,55 @@ ipkg_cmd() {
 
 if test "$install" = "Install"; then
 	if test "$part" = "none"; then
-		msg "You must select a filesystem first."
+		msg "You must select a filesystem where to install."
 	fi
 
 	part=$(httpd -d $part)
-	mp=$(cat /proc/mounts | grep $part | cut -d" " -f2)
+	mp=$(awk '/\/dev\/'$part'[[:space:]]/{print $2}' /proc/mounts)
 
 	change_feeds
 
 	ipkg_cmd -install $mp
+
+elif test -n "$ClearFlash"; then
+	write_header "Removing all non essential packages from flash"
+	echo "<pre>"
+	
+	rpkgs=$(grep ^Package ${UBIROOT}${IPKGDIR}/status | cut -f2 -d" ")
+	ipkg -force-depends remove $rpkgs
+	
+	echo "</pre>"
+	goto_button Continue /cgi-bin/packages_ipkg.cgi
+	exit 0
+	
+elif test -n "$RestoreFlash"; then
+	write_header "Reinstalling default packages on flash"
+	echo "<pre>"
+	
+	rfiles=$(cut -f1 -d" " /etc/preinst-sq)
+	ipkg -d flash -force-defaults -force-reinstall install $rfiles
+
+	echo "</pre>"
+	goto_button Continue /cgi-bin/packages_ipkg.cgi
+	exit 0
+
+elif test -n "$MoveFromDisk"; then
+	write_header "Moving packages from disk to flash"
+	
+	rpkgs=$(grep ^Package ${IPKGDIR}/status | cut -f2 -d" ")
+	for i in $rpkgs; do
+		if test -s ${IPKGDIR}/info/$i.list; then
+			echo "<p>Moving $i"
+			sed -n 's/\/Alt-F//p' ${IPKGDIR}/info/$i.list | cpio -pmd $UBIROOT 2> /dev/null
+			cp -a ${IPKGDIR}/info/$i.* ${UBIROOT}${IPKGDIR}/info/
+			sed -i 's/\/Alt-F/\/rootmnt\/ubiimage/' ${UBIROOT}${IPKGDIR}/info/$i.list
+			sed -n "/Package: $i/,/^$/p" ${IPKGDIR}/status >> ${UBIROOT}${IPKGDIR}/status
+			sed -i "/Package: $i/,/^$/d" ${IPKGDIR}/status 
+		fi
+	done
+	goto_button Continue /cgi-bin/packages_ipkg.cgi
+	exit 0
+
 
 elif test -n "$BootEnable"; then
 	aufs.sh -n >& /dev/null
@@ -148,13 +230,13 @@ elif test -n "$CopyTo"; then
 		msg "You must select a filesystem."
 	fi
 
-	if ! blkid $(cat /proc/mounts | grep $part | cut -d" " -f1) | grep -qE 'ext(2|3|4)'; then
+	if ! blkid -s TYPE -o value /dev/$part | grep -qE 'ext(2|3|4)'; then
 		msg "The destination has to be a linux ext2/3/4 filesystem."
 	fi
 
-	dest=$(cat /proc/mounts | grep $part | cut -d" " -f2)
+	dest=$(awk '/\/dev\/'$part'[[:space:]]/{print $2}' /proc/mounts)
 	if test -d "$dest/Alt-F"; then
-		msg "The destination  already has an Alt-F folder."
+		msg "The destination already has an Alt-F folder."
 	fi
 
 	altf_dir=$(eval echo \$altf_dir_$idx)
@@ -171,27 +253,23 @@ elif test -n "$CopyTo"; then
 
 elif test "$Submit" = "changeFeeds"; then
 	change_feeds
-	if aufs.sh -s >& /dev/null; then
+	#if aufs.sh -s >& /dev/null; then
 		ipkg_cmd update
-	fi
+	#fi
 
 elif test -n "$UpdatePackageList"; then
-	if aufs.sh -s >& /dev/null; then
+	#if aufs.sh -s >& /dev/null; then
 		ipkg_cmd update
-	fi
+	#fi
 
 elif test -n "$Remove"; then
-	res=$(ipkg remove $Remove 2>&1 | sed -n '/^Package/,/^$/p')
-
-	if test -n "$res"; then
-		msg "$res"
-	fi
+	ipkg_cmd remove $Remove
 
 elif test -n "$Install"; then
 	ipkg_cmd install $Install
 
 elif test -n "$Update"; then
-	ipkg_cmd install $Update
+	ipkg_cmd upgrade $Update
 
 elif test -n "$UpdateAll"; then
 	ipkg_cmd upgrade

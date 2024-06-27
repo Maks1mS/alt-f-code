@@ -4,11 +4,15 @@
 #
 #############################################################
 
-ZLIB_VERSION:=1.2.11
+#ZLIB_VERSION:=1.2.13
+ZLIB_VERSION:=1.3.1
 ZLIB_SOURCE:=zlib-$(ZLIB_VERSION).tar.xz
 ZLIB_CAT:=$(XZCAT)
-ZLIB_SITE:=$(BR2_SOURCEFORGE_MIRROR)/project/libpng/zlib/$(ZLIB_VERSION)
+ZLIB_SITE:=https://github.com/madler/zlib/releases/download/v$(ZLIB_VERSION)
+
 ZLIB_DIR:=$(BUILD_DIR)/zlib-$(ZLIB_VERSION)
+
+ZLIB_DEPENDENCIES = uclibc host-pkgconfig
 
 $(DL_DIR)/$(ZLIB_SOURCE):
 	$(call DOWNLOAD,$(ZLIB_SITE),$(ZLIB_SOURCE))

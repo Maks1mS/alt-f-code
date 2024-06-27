@@ -33,8 +33,10 @@ if test -n "$update"; then
 			msg "You are already using version $VER"
 		fi
 
-		TBALL=SABnzbd-$VER-src.tar.gz
-		SITE=http://master.dl.sourceforge.net/project/sabnzbdplus/sabnzbdplus/$VER
+		#TBALL=SABnzbd-$VER-src.tar.gz
+		#SITE=http://master.dl.sourceforge.net/project/sabnzbdplus/sabnzbdplus/$VER
+		TBALL=$VER.tar.gz
+		SITE=https://github.com/sabnzbd/sabnzbd/archive
 
 		html_header "SABnzbd update"
 		echo "<p>Downloading SABnzbd...<pre>"
@@ -50,6 +52,7 @@ if test -n "$update"; then
 
 		aufs.sh -n
 		SABPROG=/Alt-F/opt/SABnzbd
+		SABPROG2=/Alt-F/opt/sabnzbd
 		mkdir -p $SABPROG
 		echo "<p>Extracting SABnzbd..."
 		if ! tar -C /Alt-F/opt -xzf /tmp/$TBALL >& /dev/null; then
@@ -60,8 +63,8 @@ if test -n "$update"; then
 		fi
 		rm -f /tmp/$TBALL
 
-		cp -a $SABPROG-$VER/* $SABPROG
-		rm -rf $SABPROG-$VER
+		cp -a $SABPROG2-$VER/* $SABPROG
+		rm -rf $SABPROG2-$VER
 		chown -R sabnzbd:TV $SABPROG
 		aufs.sh -r
 
@@ -166,7 +169,7 @@ elif test -n "$webPage"; then
 	PORT=$(awk '/[misc]/{ while (st = getline) { if ($1 == "port") {print $3; exit}}}' $SABCONF)
 	PROTO="http"
 
-	if grep -q '^enable_https.*=.*1' $SABCONF; then
+	if grep -q '^enable_https[[:space:]]*=[[:space:]]*1' $SABCONF; then
 		PROTO="https"
 		PORT=$(awk '/[misc]/{ while (st = getline) { if ($1 == "https_port") {print $3; exit}}}' $SABCONF)
 	fi

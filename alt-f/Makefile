@@ -377,13 +377,15 @@ endif
 ifneq ($(BR2_HAVE_DOCUMENTATION),y)
 	rm -rf $(TARGET_DIR)/usr/share/doc
 endif
-	rm -rf $(TARGET_DIR)/usr/share/aclocal
+	rm -rf $(TARGET_DIR)/usr/share/aclocal \
+	$(TARGET_DIR)/usr/share/applications \
+	$(TARGET_DIR)/tmp/*
 	find $(TARGET_DIR) -type f -perm /111 | xargs $(STRIPCMD) 2>/dev/null || true
 ifeq ($(BR2_PTHREAD_DEBUG),y)
 	cp $(STAGING_DIR)/lib/libpthread-0.9.30.3.so $(TARGET_DIR)/lib
 	cp $(STAGING_DIR)/lib/libthread_db-0.9.30.3.so $(TARGET_DIR)/lib
 endif
-	$(TARGET_LDCONFIG) -r $(TARGET_DIR) 2>/dev/null
+	$(TARGET_LDCONFIG) -nr $(TARGET_DIR) 2>/dev/null
 
 ifneq ($(BR2_ROOTFS_POST_BUILD_SCRIPT),"")
 	$(BR2_ROOTFS_POST_BUILD_SCRIPT) $(TARGET_DIR)
@@ -607,3 +609,9 @@ release: distclean
 .PHONY: dummy subdirs release distclean clean config oldconfig \
 	menuconfig xconfig tags check test depend defconfig help
 
+CC = cc
+CXX = g++
+CFLAGS=-pipe -fomit-frame-pointer -O2  -I/home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir/usr/include -I/home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir/include --sysroot=/home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir/ -isysroot /home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir -mtune=arm926ej-s -march=armv5te -mabi=aapcs-linux -msoft-float -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64  n CXXFLAGS=-pipe -fomit-frame-pointer -O2  -I/home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir/usr/include -I/home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir/include --sysroot=/home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir/ -isysroot /home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir -mtune=arm926ej-s -march=armv5te -mabi=aapcs-linux -msoft-float -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 
+CC = /home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir/usr/bin/arm-linux-uclibcgnueabi-gcc
+CXX = /home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir/usr/bin/arm-linux-uclibcgnueabi-g++
+CFLAGS=-pipe -fomit-frame-pointer -O2  -I/home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir/usr/include -I/home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir/include --sysroot=/home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir/ -isysroot /home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir -mtune=arm926ej-s -march=armv5te -mabi=aapcs-linux -msoft-float -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64  n CXXFLAGS=-pipe -fomit-frame-pointer -O2  -I/home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir/usr/include -I/home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir/include --sysroot=/home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir/ -isysroot /home/jcard/Alt-F/alt-f-sf/build/build_arm/staging_dir -mtune=arm926ej-s -march=armv5te -mabi=aapcs-linux -msoft-float -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 

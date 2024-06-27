@@ -6,7 +6,7 @@ NAME=dnsmasq
 
 . /etc/init.d/common
 
-FLG_MSG="#!in use by dnsmasq, don't change"
+FLG_MSG="#!# in use by dnsmasq, don't change"
 CONF_R=/etc/resolv.conf
 CONF_DR=/etc/dnsmasq-resolv
 CONF_DN=/etc/dnsmasq-hosts
@@ -17,8 +17,11 @@ case "$1" in
 	start)
 		if ! grep -q "^$FLG_MSG" $CONF_R; then
 			cp $CONF_R $CONF_DR
-			sed -i -e 's/^nameserver/#!&/' $CONF_R
-			echo -e "$FLG_MSG\nnameserver 127.0.0.1" >> $CONF_R
+#			sed -i -e 's/^nameserver/#!&/' $CONF_R
+#			echo -e "$FLG_MSG\nnameserver 127.0.0.1" >> $CONF_R
+            sed -i "1i $FLG_MSG" $CONF_R
+            # keep original nameservers as fallbacks if dnsmasq breaks
+            sed -i '/^search/a nameserver 127.0.0.1' $CONF_R   
 		fi
 		if ! test -f $CONF_DN; then
 			touch $CONF_DN
@@ -27,11 +30,11 @@ case "$1" in
 			. $CONF_M
 		fi
 		if test "$(grep 'option:ntp-server' $CONF_DO | tr ',\t' ' ' | cut -f2 -d' ')" = "0.0.0.0"; then # advertise local ntp server
-			if test "$NTPD_DAEMON" = "yes"; then
+			if test "$NTPD_SERVER" = "yes"; then
 				if ! rcntp status >& /dev/null; then
 					rcntp start
 				fi
-			else # but ntpd is not a daemon
+			else # but ntpd is not a server
 				sed -i '/^option:ntp-server/d' $CONF_DO # don't advertise
 			fi
 		fi

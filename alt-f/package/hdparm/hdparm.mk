@@ -4,54 +4,19 @@
 #
 #############################################################
 
-HDPARM_VERSION:=9.35
+HDPARM_VERSION:=9.58
 HDPARM_SOURCE:=hdparm-$(HDPARM_VERSION).tar.gz
 HDPARM_SITE:=$(BR2_SOURCEFORGE_MIRROR)/project/hdparm/hdparm
 
-HDPARM_CAT:=$(ZCAT)
-HDPARM_DIR:=$(BUILD_DIR)/hdparm-$(HDPARM_VERSION)
-HDPARM_BINARY:=hdparm
-HDPARM_TARGET_BINARY:=sbin/hdparm
+HDPARM_MAKE_OPT = CC="$(TARGET_CC)" CFLAGS="$(TARGET_CFLAGS)"
 
-$(DL_DIR)/$(HDPARM_SOURCE):
-	 $(call DOWNLOAD,$(HDPARM_SITE),$(HDPARM_SOURCE))
+$(eval $(call AUTOTARGETS,package,hdparm))
 
-hdparm-source: $(DL_DIR)/$(HDPARM_SOURCE)
-
-$(HDPARM_DIR)/.unpacked: $(DL_DIR)/$(HDPARM_SOURCE)
-	$(HDPARM_CAT) $(DL_DIR)/$(HDPARM_SOURCE) | tar -C $(BUILD_DIR) $(TAR_OPTIONS) -
-	toolchain/patch-kernel.sh $(HDPARM_DIR) package/hdparm \*.patch
+$(HDPARM_TARGET_CONFIGURE):
 	touch $@
 
-$(HDPARM_DIR)/$(HDPARM_BINARY): $(HDPARM_DIR)/.unpacked
-	$(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(HDPARM_DIR) \
-		CFLAGS="$(TARGET_CFLAGS)" \
-		LDFLAGS="$(TARGET_LDFLAGS)"
-
-$(TARGET_DIR)/$(HDPARM_TARGET_BINARY): $(HDPARM_DIR)/$(HDPARM_BINARY)
-	rm -f $(TARGET_DIR)/$(HDPARM_TARGET_BINARY)
-	$(INSTALL) -D -m 0755 $(HDPARM_DIR)/$(HDPARM_BINARY) $(TARGET_DIR)/$(HDPARM_TARGET_BINARY)
-ifeq ($(BR2_HAVE_MANPAGES),y)
-	$(INSTALL) -D $(HDPARM_DIR)/hdparm.8 $(TARGET_DIR)/usr/share/man/man8/hdparm.8
-endif
-	$(STRIPCMD) $(STRIP_STRIP_ALL) $@
-
-hdparm: uclibc $(TARGET_DIR)/$(HDPARM_TARGET_BINARY)
-
-hdparm-build: $(HDPARM_DIR)/$(HDPARM_BINARY)
-
-hdparm-clean:
-	-$(MAKE) -C $(HDPARM_DIR) clean
-	rm -f $(TARGET_DIR)/$(HDPARM_TARGET_BINARY)
-
-hdparm-dirclean:
-	rm -rf $(HDPARM_DIR)
-
-#############################################################
-#
-# Toplevel Makefile options
-#
-#############################################################
-ifeq ($(BR2_PACKAGE_HDPARM),y)
-TARGETS+=hdparm
-endif
+$(HDPARM_TARGET_INSTALL_TARGET):
+	# busybox hdparm is installed at /sbin/, use update-alternatives at pkg install time
+	$(INSTALL) -m 755 $(HDPARM_DIR)/hdparm $(TARGET_DIR)/usr/sbin/hdparm
+	touch $@
+	

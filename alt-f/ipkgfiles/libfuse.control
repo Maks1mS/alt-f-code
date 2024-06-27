@@ -5,5 +5,5 @@ Description: provides FUSE, Filesystem in UserSpacE
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://fuse.sourceforge.net/
+Source: https://fuse.sourceforge.net/
 Maintainer: jcard

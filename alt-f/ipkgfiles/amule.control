@@ -5,5 +5,5 @@ Depends: libupnp, libpng, readline, cryptopp, wxwidgets, perl, ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.amule.org
+Source: https://www.amule.org
 Maintainer: jcard

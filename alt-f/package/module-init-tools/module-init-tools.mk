@@ -5,6 +5,7 @@
 #############################################################
 
 MODULE_INIT_TOOLS_VERSION=3.2.2
+#MODULE_INIT_TOOLS_VERSION=3.15
 # not available, it will fallback to buildroot.net, which has a copy 
 MODULE_INIT_TOOLS_SOURCE=module-init-tools-$(MODULE_INIT_TOOLS_VERSION).tar.bz2
 MODULE_INIT_TOOLS_SITE=$(BR2_KERNEL_MIRROR)/linux/utils/kernel/module-init-tools
@@ -36,6 +37,7 @@ $(MODULE_INIT_TOOLS_DIR)/.configured: $(MODULE_INIT_TOOLS_DIR)/.unpacked
 		$(TARGET_CONFIGURE_OPTS) \
 		$(TARGET_CONFIGURE_ARGS) \
 		INSTALL=$(MODULE_INIT_TOOLS_DIR)/install-sh \
+		CFLAGS=-DCONFIG_NO_BACKWARDS_COMPAT \
 		./configure \
 		--target=$(GNU_TARGET_NAME) \
 		--host=$(GNU_TARGET_NAME) \
@@ -81,14 +83,17 @@ module-init-tools-dirclean:
 
 
 $(MODULE_INIT_TOOLS_DIR2)/.source: $(DL_DIR)/$(MODULE_INIT_TOOLS_SOURCE)
-	$(MODULE_INIT_TOOLS_CAT) $(DL_DIR)/$(MODULE_INIT_TOOLS_SOURCE) | tar -C $(TOOL_BUILD_DIR) -xvf -
+	$(MODULE_INIT_TOOLS_CAT) $(DL_DIR)/$(MODULE_INIT_TOOLS_SOURCE) | tar -C $(TOOL_BUILD_DIR) -xf -
 	toolchain/patch-kernel.sh $(MODULE_INIT_TOOLS_DIR2) package/module-init-tools \*.patch
 	$(CONFIG_UPDATE) $(MODULE_INIT_TOOLS_DIR2)
 	touch $(MODULE_INIT_TOOLS_DIR2)/.source
 
+	# install glibc-devel-static
+
 $(MODULE_INIT_TOOLS_DIR2)/.configured: $(MODULE_INIT_TOOLS_DIR2)/.source
 	(cd $(MODULE_INIT_TOOLS_DIR2); \
 		CC="$(HOSTCC)" \
+		CFLAGS=-DCONFIG_NO_BACKWARDS_COMPAT \
 		./configure \
 		--target=$(GNU_TARGET_NAME) \
 		--host=$(GNU_HOST_NAME) \
@@ -101,7 +106,6 @@ $(MODULE_INIT_TOOLS_DIR2)/.configured: $(MODULE_INIT_TOOLS_DIR2)/.source
 $(MODULE_INIT_TOOLS_DIR2)/$(MODULE_INIT_TOOLS_BINARY): $(MODULE_INIT_TOOLS_DIR2)/.configured
 	$(MAKE) -C $(MODULE_INIT_TOOLS_DIR2)
 	touch -c $(MODULE_INIT_TOOLS_DIR2)/$(MODULE_INIT_TOOLS_BINARY)
-
 
 $(STAGING_DIR)/bin/$(GNU_TARGET_NAME)-depmod26: $(MODULE_INIT_TOOLS_DIR2)/$(MODULE_INIT_TOOLS_BINARY)
 	$(INSTALL) -D $(MODULE_INIT_TOOLS_DIR2)/$(MODULE_INIT_TOOLS_BINARY) $(STAGING_DIR)/bin/$(GNU_TARGET_NAME)-depmod26

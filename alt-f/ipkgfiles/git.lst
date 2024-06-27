@@ -149,6 +149,7 @@
 ./usr/lib/git-core/git-status
 ./usr/lib/git-core/git-stripspace
 ./usr/lib/git-core/git-submodule
+./usr/lib/git-core/git-submodule--helper
 ./usr/lib/git-core/git-svn
 ./usr/lib/git-core/git-symbolic-ref
 ./usr/lib/git-core/git-tag
@@ -165,6 +166,7 @@
 ./usr/lib/git-core/git-verify-tag
 ./usr/lib/git-core/git-web--browse
 ./usr/lib/git-core/git-whatchanged
+./usr/lib/git-core/git-worktree
 ./usr/lib/git-core/git-write-tree
 ./usr/lib/git-core/mergetools
 ./usr/lib/git-core/mergetools/araxis
@@ -176,6 +178,7 @@
 ./usr/lib/git-core/mergetools/diffuse
 ./usr/lib/git-core/mergetools/ecmerge
 ./usr/lib/git-core/mergetools/emerge
+./usr/lib/git-core/mergetools/examdiff
 ./usr/lib/git-core/mergetools/gvimdiff
 ./usr/lib/git-core/mergetools/gvimdiff2
 ./usr/lib/git-core/mergetools/gvimdiff3
@@ -189,6 +192,7 @@
 ./usr/lib/git-core/mergetools/vimdiff
 ./usr/lib/git-core/mergetools/vimdiff2
 ./usr/lib/git-core/mergetools/vimdiff3
+./usr/lib/git-core/mergetools/winmerge
 ./usr/lib/git-core/mergetools/xxdiff
 ./usr/lib/perl5/site_perl/5.16.0/Error.pm
 ./usr/lib/perl5/site_perl/5.16.0/Git

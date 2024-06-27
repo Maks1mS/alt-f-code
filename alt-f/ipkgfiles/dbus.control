@@ -5,5 +5,5 @@ Depends: expat, ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.freedesktop.org/wiki/Software/dbus
+Source: https://www.freedesktop.org/wiki/Software/dbus
 Maintainer: jcard

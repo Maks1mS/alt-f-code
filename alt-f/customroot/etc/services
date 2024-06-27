@@ -277,14 +277,16 @@ coda_aux2	1433/udp			# coda auxiliary service (Coda fs)
 coda_aux3	1435/tcp			# coda auxiliary service (Coda fs)
 coda_aux3	1435/udp			# coda auxiliary service (Coda fs)
 cfinger		2003/tcp			# GNU Finger
-ssh_alt		2222/tcp				# SSH Remote Login Protocol
-ssh_alt		2222/udp				# SSH Remote Login Protocol
+ssh_alt		2222/tcp			# SSH Remote Login Protocol
+ssh_alt		2222/udp			# SSH Remote Login Protocol
 afbackup	2988/tcp			# Afbackup system
 afbackup	2988/udp			# Afbackup system
-icp		3130/tcp			# Internet Cache Protocol (Squid)
-icp		3130/udp			# Internet Cache Protocol (Squid)
-daap	3689/tcp   # Digital Audio Access Protocol
-daap	3689/udp   # Digital Audio Access Protocol
+icp			3130/tcp			# Internet Cache Protocol (Squid)
+icp			3130/udp			# Internet Cache Protocol (Squid)
+daap		3689/tcp   # Digital Audio Access Protocol
+daap		3689/udp   # Digital Audio Access Protocol
+ws-discovery	3702/tcp	# Web Service Discovery  [Christian_Huitema_2]
+ws-discovery	3702/udp	# Web Service Discovery  [Christian_Huitema_2]
 postgres	5432/tcp			# POSTGRES
 postgres	5432/udp			# POSTGRES
 fax			4557/tcp			# FAX transmission service        (old)
@@ -293,14 +295,14 @@ mdns		5353/tcp		# Multicast DNS
 mdns		5353/udp		# Multicast DNS
 noclog		5354/tcp			# noclogd with TCP (nocol)
 noclog		5354/udp			# noclogd with UDP (nocol)
-hostmon		5355/tcp			# hostmon uses TCP (nocol)
-hostmon		5355/udp			# hostmon uses TCP (nocol)
+llmnr		5355/tcp	# LLMNR  [Bernard_Aboba]
+llmnr		5355/udp	# LLMNR  [Bernard_Aboba]
 ircd		6667/tcp			# Internet Relay Chat
 ircd		6667/udp			# Internet Relay Chat
 #webcache	8080/tcp			# WWW caching service
 #webcache	8080/udp			# WWW caching service
-http_alt		8080/tcp		# WorldWideWeb HTTP (alternative)
-http_alt		8080/udp		# WorldWideWeb HTTP (alternative)
+http_alt	8080/tcp		# WorldWideWeb HTTP (alternative)
+http_alt	8080/udp		# WorldWideWeb HTTP (alternative)
 tproxy		8081/tcp			# Transparent Proxy
 tproxy		8081/udp			# Transparent Proxy
 mandelspawn	9359/udp	mandelbrot	# network mandelbrot

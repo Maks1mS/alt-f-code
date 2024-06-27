@@ -23,17 +23,24 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 # USA
 
+#https://gitlab.com/lvmteam/lvm2/-/archive/v2_02_88/lvm2-v2_02_88.tar.bz2
+
 #LVM2_BASEVER=2.02
 LVM2_DMVER=1.02
 #LVM2_PATCH=50
 #LVM2_PATCH=67
 #LVM2_VERSION=$(LVM2_BASEVER).$(LVM2_PATCH)
 #LVM2_VERSION=2.02.67
+# next try 2.02.177 Dec-2017; after that libaio is a dependency?
 LVM2_VERSION=2.02.88
-LVM2_SOURCE:=LVM2.$(LVM2_VERSION).tgz
-LVM2_SITE:=ftp://sources.redhat.com/pub/lvm2
-LVM2_CAT:=$(ZCAT)
-LVM2_DIR:=$(BUILD_DIR)/LVM2.$(LVM2_VERSION)
+LVM2_VERSION2=v2_02_88
+
+LVM2_SITE:=https://gitlab.com/lvmteam/lvm2/-/archive/$(LVM2_VERSION2)
+LVM2_SOURCE:=lvm2-$(LVM2_VERSION2).tar.bz2
+
+LVM2_CAT:=$(BZCAT)
+LVM2_DIR:=$(BUILD_DIR)/lvm2-$(LVM2_VERSION)
+
 LVM2_SBIN:=lvchange lvcreate lvdisplay lvextend lvm lvmchange lvmdiskscan lvmsadc lvmsar lvreduce lvremove lvrename lvresize lvs lvscan pvchange pvcreate pvdisplay pvmove pvremove pvresize pvs pvscan vgcfgbackup vgcfgrestore vgchange vgck vgconvert vgcreate vgdisplay vgexport vgextend vgimport vgmerge vgmknodes vgreduce vgremove vgrename vgs vgscan vgsplit
 LVM2_DMSETUP_SBIN:=dmsetup
 LVM2_LIB:=libdevmapper.so.$(LVM2_DMVER)
@@ -41,6 +48,11 @@ LVM2_TARGET_SBINS=$(foreach lvm2sbin, $(LVM2_SBIN), $(TARGET_DIR)/usr/sbin/$(lvm
 LVM2_TARGET_DMSETUP_SBINS=$(foreach lvm2sbin, $(LVM2_DMSETUP_SBIN), $(TARGET_DIR)/sbin/$(lvm2sbin))
 LVM2_TARGET_LIBS=$(foreach lvm2lib, $(LVM2_LIB), $(TARGET_DIR)/lib/$(lvm2lib))
 LVM2_CONF_OPT:=--disable-dmeventd --disable-selinux --disable-udev_sync --disable-udev_rules
+
+# device-mapper: the kernel event handling can *probably* only be solved with udev sync,
+# which has some other dependencies
+#LVM2_CONF_OPT:=--disable-dmeventd --disable-selinux --enable-udev_sync --disable-udev_rules
+#LVM2_CONF_ENV:=UDEV_CFLAGS=-I$(STAGING_DIR)/usr/include/udev UDEV_LIBS=-L$(STAGING_DIR)/usr/lib
 
 $(DL_DIR)/$(LVM2_SOURCE):
 	 $(call DOWNLOAD,$(LVM2_SITE),$(LVM2_SOURCE))
@@ -56,7 +68,8 @@ LVM2_CONF_OPT+=--disable-readline
 endif
 
 $(LVM2_DIR)/.unpacked: $(DL_DIR)/$(LVM2_SOURCE)
-	$(LVM2_CAT) $(DL_DIR)/$(LVM2_SOURCE) | tar -C $(BUILD_DIR) $(TAR_OPTIONS) -
+	mkdir -p $(LVM2_DIR)
+	$(LVM2_CAT) $(DL_DIR)/$(LVM2_SOURCE) | tar $(TAR_STRIP_COMPONENTS)=1 -C $(LVM2_DIR) $(TAR_OPTIONS) -
 	toolchain/patch-kernel.sh $(LVM2_DIR) package/lvm2 lvm2-$(LVM2_VERSION)-\*.patch\*
 	touch $(LVM2_DIR)/.unpacked
 
@@ -64,6 +77,8 @@ $(LVM2_DIR)/.configured: $(LVM2_DIR)/.unpacked
 	(cd $(LVM2_DIR); rm -rf config.cache; \
 		$(TARGET_CONFIGURE_OPTS) \
 		$(TARGET_CONFIGURE_ARGS) \
+		$(TARGET_CONFIGURE_ENV) \
+		$(LVM2_CONF_ENV) \
 		ac_cv_have_decl_malloc=yes \
 		gl_cv_func_malloc_0_nonnull=yes \
 		ac_cv_func_malloc_0_nonnull=yes \
@@ -84,7 +99,7 @@ $(LVM2_DIR)/.configured: $(LVM2_DIR)/.unpacked
 # --with-user=$(shell id -un) --with-group=$(shell id -gn) \
 
 $(LVM2_DIR)/.built: $(LVM2_DIR)/.configured
-	$(MAKE1) CC=$(TARGET_CC) RANLIB=$(TARGET_RANLIB) AR=$(TARGET_AR) -C $(LVM2_DIR) DESTDIR=$(STAGING_DIR)
+	$(MAKE1) CC=$(TARGET_CC) RANLIB=$(TARGET_RANLIB) AR=$(TARGET_AR) -C $(LVM2_DIR)
 	$(MAKE1) -C $(LVM2_DIR) DESTDIR=$(STAGING_DIR) install
 	# Fixup write permissions so that the files can be overwritten
 	# several times in the $(TARGET_DIR)
@@ -100,6 +115,10 @@ $(LVM2_TARGET_SBINS) $(LVM2_TARGET_DMSETUP_SBINS): $(LVM2_DIR)/.built
 $(LVM2_TARGET_LIBS): $(LVM2_DIR)/.built
 	cp -a $(STAGING_DIR)/usr/lib/$(notdir $@) $@
 
+lvm2-source:	$(DL_DIR)/$(LVM2_SOURCE)
+	
+lvm2-extract:	$(LVM2_DIR)/.unpacked
+	
 lvm2-configure: $(LVM2_DIR)/.configured
 
 lvm2-build: $(LVM2_DIR)/.built

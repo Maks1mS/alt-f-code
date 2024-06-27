@@ -7,5 +7,5 @@ Depends: libogg, ipkg
 Architecture: arm
 Priority: optional
 Section: libraries
-Source: http://xiph.org/vorbis/
+Source: https://xiph.org/vorbis/
 Maintainer: jcard

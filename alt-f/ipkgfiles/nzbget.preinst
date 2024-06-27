@@ -1,4 +1,4 @@
-#/bin/sh
+#!/bin/sh
 
 DAEMON=rcnzbget
 CONFF=/etc/nzbget.conf

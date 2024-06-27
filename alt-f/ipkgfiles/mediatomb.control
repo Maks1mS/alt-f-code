@@ -5,5 +5,5 @@ Description: A UPnP MediaServer with a nice web user interface.
 Architecture: arm
 Priority: optional
 Section: upnp-dlna servers
-Source: http://mediatomb.cc
+Source: https://mediatomb.cc
 Maintainer: jcard

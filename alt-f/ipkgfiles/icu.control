@@ -5,5 +5,5 @@ Depends: ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://icu-project.org/
+Source: https://icu-project.org/
 Maintainer: jcard

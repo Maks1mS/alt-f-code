@@ -142,9 +142,9 @@ case "$1" in
 
 	status)
 		if test -x "$USER_SCRIPT" -a -f $USERLOCK; then
-			echo "$NAME started."
+			echo -e "$DESC\n$NAME started"
 		else
-			echo "$NAME stopped."
+			echo -e "$DESC\n$NAME stopped"
 			exit 1
 		fi
 		;;

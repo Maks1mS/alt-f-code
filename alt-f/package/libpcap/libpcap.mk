@@ -4,9 +4,10 @@
 #
 ############################################################
 
-LIBPCAP_VERSION:=1.4.0
+LIBPCAP_VERSION:=1.9.1
 LIBPCAP_SOURCE:=libpcap-$(LIBPCAP_VERSION).tar.gz
-LIBPCAP_SITE:=http://www.tcpdump.org/release
+LIBPCAP_SITE:=https://www.tcpdump.org/release
+
 LIBPCAP_DIR:=$(BUILD_DIR)/libpcap-$(LIBPCAP_VERSION)
 LIBPCAP_INSTALL_STAGING = YES
 
@@ -18,4 +19,5 @@ $(eval $(call AUTOTARGETS,package,libpcap))
 
 $(LIBPCAP_HOOK_POST_INSTALL):
 	rm -f $(TARGET_DIR)/usr/bin/pcap-config
+	$(SED) 's|/usr|$(STAGING_DIR)/usr|' $(STAGING_DIR)/usr/bin/pcap-config
 	touch $@

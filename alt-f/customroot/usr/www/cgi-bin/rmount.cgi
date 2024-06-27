@@ -105,9 +105,9 @@ cat<<-EOF
 			if (opts.value != "")
 				return;
 			if (kind == "cifs")
-				opts.value = "uid=root,gid=users,credentials=/etc/samba/credentials.root,rw,iocharset=utf8,nounix,noserverino,noauto"
+				opts.value = "rw,uid=root,gid=users,credentials=/etc/samba/credentials.root,vers=2.0,iocharset=utf8,nounix,noserverino,noauto"
 			else if (kind == "nfs")
-				opts.value = "rw,hard,intr,proto=tcp,noauto"; // keep in sync with nfs_proc.cgi
+				opts.value = "rw,hard,intr,proto=tcp,noauto"; // keep in sync with rmount_proc.cgi
 		}
 		function check_mount(op, id) {
 			if (op == "unMount" && document.getElementById(id).checked == true) {
@@ -191,7 +191,7 @@ if modprobe -D cifs >& /dev/null; then
 	done
 
 else
-	echo "<p>You have to install the kernel-modules package</p>"
+	echo "<p>You have to install the cifs-utils and kernel-modules package</p>"
 fi
 
 cat<<-EOF

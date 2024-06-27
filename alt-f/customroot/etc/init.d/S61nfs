@@ -1,6 +1,6 @@
 #!/bin/sh
 
-DESC="NFS (Network File System) Server (unix)"
+DESC="NFS (Network File System) Server"
 TYPE=net
 NAME=nfsd
 REQUIRE="nsm"
@@ -15,7 +15,7 @@ if test -f $MISCC; then
 fi
 
 # remove possible leftovers from previous firmware 
-rm -rf /etc/init.d/S60nfs /etc/init.d/S60nfs_client
+rm -f /etc/init.d/S60nfs /etc/init.d/S60nfs_client
 
 istart() {
 	if test -n "$DELAY_NFS"; then
@@ -56,13 +56,12 @@ istart() {
 
 	if ! test -f /proc/fs/nfsd/exports; then
 		mount -t nfsd nfsd /proc/fs/nfsd
-		sleep 1
-		if test -z "$NFS_BLKSIZE"; then
+		if test -n "$NFS_BLKSIZE"; then
 			if test $(awk '/MemTotal/{print $2}' /proc/meminfo) -lt 262144; then
 				NFS_BLKSIZE=32768
 			fi
+			echo $NFS_BLKSIZE > /proc/fs/nfsd/max_block_size
 		fi
-		echo $NFS_BLKSIZE > /proc/fs/nfsd/max_block_size
 	fi
 
 	exportfs -r

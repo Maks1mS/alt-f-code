@@ -33,7 +33,7 @@ if ! test -d /ffp/var/packages -o -d /ffp/funpkg/installed; then
 		$disclaimer
 		<h4>No ffp instalation found.</h4>
 		$errmsg
-		<form action="/cgi-bin/packages_ffp_proc.cgi" method=post>
+		<form action="/cgi-bin/packages_ffp_proc.cgi" method="post">
 		<table>
 		<tr><td>Install ffp-0.5</td><td><input type=radio checked name=ffpver value=0.5></td></tr>
 		<tr><td>Install ffp-0.7</td><td><input type=radio name=ffpver value=0.7></td></tr>
@@ -105,7 +105,7 @@ else
 fi
 
 cat <<-EOF
-	<form action="/cgi-bin/packages_ffp_proc.cgi" method=post>
+	<form action="/cgi-bin/packages_ffp_proc.cgi" method="post">
 	<input type=hidden name=ffpver value="$ffpver">
 	
 	<fieldset><legend>Package Feed</legend><table>

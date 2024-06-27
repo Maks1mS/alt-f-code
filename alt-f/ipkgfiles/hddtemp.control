@@ -1,9 +1,9 @@
 Package: hddtemp
 Description: Read disks temperature
-Version: 0.3-beta15
-Depends: ipkg, gettext
+Version: 0.3-beta15-1
+Depends: ipkg, libiconv, gettext
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.guzu.net/linux/hddtemp.php
+Source: https://savannah.nongnu.org/projects/hddtemp
 Maintainer: jcard

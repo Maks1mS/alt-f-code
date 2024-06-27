@@ -17,17 +17,17 @@ FTPS_PIDFILE=$RC_PIDDIR/vsftpd-ftps.pid
 RC_MAKE_PID=y
 RC_START_BG=y
 
+VSFTPD_BIN=/usr/sbin/vsftpd
+
 OPTS="/etc/vsftpd.conf -olisten=yes"
 FTP_OPTS="-olisten_port=21"
 FTPS_OPTS="-olisten_port=990 -oimplicit_ssl=yes"
 
-. /etc/init.d/common
-
 sinit() {
-	if ! grep -q '/usr/sbin/vsftpd' $CONF_INETD; then # add ftp and ftps to inetd
+	if ! grep -q $VSFTPD_BIN $CONF_INETD; then # add ftp and ftps to inetd
 		cat<<-EOF >> $CONF_INETD
-			ftp	stream	tcp	nowait	root	/usr/sbin/vsftpd	vsftpd -olisten=no # FTP server
-			ftps	stream	tcp	nowait	root	/usr/sbin/vsftpd	vsftpd -olisten=no -oimplicit_ssl=yes # FTPS server
+			ftp	stream	tcp	nowait	root	$VSFTPD_BIN	vsftpd -olisten=no # FTP server
+			ftps	stream	tcp	nowait	root	$VSFTPD_BIN	vsftpd -olisten=no -oimplicit_ssl=yes # FTPS server
 		EOF
 		rcinetd reload
 	fi
@@ -50,10 +50,7 @@ sinit() {
 	fi
 }
 
-if test "$1" = "init"; then
-	sinit
-	exit
-fi
+. /etc/init.d/common
 
 if check_inetd ftp || check_inetd ftps; then
 	exit 2
@@ -61,7 +58,6 @@ fi
 
 case "$1" in
 	start)
-		sinit
 		if grep -q 'implicit_ssl=yes' $CONF; then
 			RC_PIDFILE=$FTPS_PIDFILE start $NAME -- $OPTS $FTPS_OPTS
 			avahi add ftps

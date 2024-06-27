@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/sh
 
 # fix automatic.conf from 0.6.4 to 0.6.7
 # split feed: url/cookies and filter: pattern/folder into two lines

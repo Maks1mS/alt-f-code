@@ -10,7 +10,7 @@ CONFF=/etc/misc.conf
 
 case "$1" in
 	start)
-		if test -e $CONFF; then
+		if test -s $CONFF; then
 			. $CONFF
 		fi
 		if test -z "$MDADM_INTERVAL"; then
@@ -19,14 +19,13 @@ case "$1" in
 			MDADM_INTERVAL=$(expr $MDADM_INTERVAL \* 60)
 		fi
 
-		SENDTO=$(grep '^MAILTO' $CONFF | cut -d= -f2)
-		if test -z "$SENDTO"; then
+		if test -z "$MAILTO"; then
 			echo "Mail not configured, exiting."
 			exit 1
 		fi
 
 		start $NAME -- --monitor --scan \
-			--daemonise --mail $SENDTO --delay $MDADM_INTERVAL \
+			--daemonise --mail $MAILTO --delay $MDADM_INTERVAL \
 			$MDADM_EMAIL_TEST --syslog --pid-file $PIDFILE
 		;;
 	stop) stop $NAME ;;

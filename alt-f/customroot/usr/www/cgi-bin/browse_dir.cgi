@@ -137,23 +137,23 @@ mktt mvdir "Rename the currently selected folder to the edited name in the Selec
 mktt rmdir "Delete the currently selected folder."
 mktt perms "Change permissions and ownership of the currently selected folder."
 
-if test -n "$wind"; then url_wind="wind=${wind}?"; fi
+if test -n "$wind"; then url_wind="wind=${wind}&"; fi
 
-if test -n "$id"; then url_id="id=${id}?"; fi
+if test -n "$id"; then url_id="id=${id}&"; fi
 
-if test -n "$op"; then url_op="op=${op}?"; fi
+if test -n "$op"; then url_op="op=${op}&"; fi
 
 if test "$vmode" = "tree"; then
-	url_vmode="vmode=tree?"
+	url_vmode="vmode=tree&"
 	tree_sel=checked
 else
-	url_vmode="vmode=flat?"
+	url_vmode="vmode=flat&"
 	flat_sel=checked
 fi
 
 if test -n "$srcdir"; then
 	perce_srcdir=$srcdir
-	url_srcdir="srcdir=${perce_srcdir}?"
+	url_srcdir="srcdir=${perce_srcdir}&"
 	srcdir=$(httpd -d "$srcdir")
 	urle_srcdir=$(http_encode "$srcdir")
 fi
@@ -193,7 +193,8 @@ if test -f "$fop"; then
 	fpid=$(echo $fop | sed "s|/tmp/folders_op.\(.*\)|\1|")
 	if kill -0 $fpid >& /dev/null; then
 		fop_dis="disabled"
-		fop_msg='<tr><td></td><td class="red">Folder operation currently in progress</td></tr>'
+		comp=$(cat $fop)
+		fop_msg="<tr><td></td><td class=\"red\">Folder operation in progress, ${comp}&#37;  completed.</td><td><input type=submit name="Stop" value="Stop"></td></tr>"
 	else
 		rm -f $fop
 	fi
@@ -227,12 +228,12 @@ cat <<-EOF
 				edir = edir.substr(0, edir.length-2)
 			pcomp = edir.split("/")
 			if (pcomp.length == 3)
-				return confirm("ARE YOU REALLY SURE THAT YOU WANT TO DELETE ALL THE\n\n   " 
-+ pcomp[2] + "\n\nFILESYSTEM DATA? REALLY?")
-			return confirm("Delete folder\n\n   " + edir + "\n\nand all its files and sub-folders?");
+				return confirm("ARE YOU REALLY SURE THAT YOU WANT TO DELETE ALL THE\n   " 
++ pcomp[2] + "\nFILESYSTEM DATA? REALLY?")
+			return confirm("Delete folder\n   " + edir + "\nand all its files and sub-folders?");
 		}
 		function vmode(mode, dir) {
-			window.location.assign("/cgi-bin/browse_dir.cgi?${url_wind}${url_id}${url_op}vmode=" + mode + "?${url_srcdir}browse=" + dir)
+			window.location.assign("/cgi-bin/browse_dir.cgi?${url_wind}${url_id}${url_op}vmode=" + mode + "&${url_srcdir}browse=" + dir)
 		}
 		function perms(dir) {
 			window.location.assign("/cgi-bin/perms.cgi?${url_wind}browse=" + dir)
@@ -240,7 +241,7 @@ cat <<-EOF
 		function ops(op, dir, id, wind) {
 			//edir = window.encodeURIComponent(dir);
 			window.location.assign("/cgi-bin/browse_dir.cgi?" +
-wind + id + "op=" + op + "?srcdir=" + dir + "?browse=" + dir) 
+wind + id + "op=" + op + "&srcdir=" + dir + "&browse=" + dir) 
 		}
 		function op_paste(op, srcdir, destdir) {
 			srcdir = window.decodeURIComponent(srcdir);
@@ -259,7 +260,7 @@ wind + id + "op=" + op + "?srcdir=" + dir + "?browse=" + dir)
 			else if (op == 'CopyContent')
 				msg = "Copy all files and folders from"	
 
-			ret = confirm(msg + "\n\n   " + srcdir + "\n\nto\n\n   " +
+			ret = confirm(msg + "\n   " + srcdir + "\nto\n   " +
 				 destdir + "\n\nThis operation can take a long time to accomplish,\n" +
 				"depending on the amount of data to transfer.\n\nProceed?")
 			return ret

@@ -17,20 +17,23 @@ case "$1" in
 		;;
 
 	stop)
-		if ! lsmod | grep -q ^dm_mod; then
-			omsg 0
-			return 0
-		fi
 		echo -n "Stopping $NAME: "
-		modprobe -qr dm_snapshot dm_mirror dm_region_hash dm_log dm_mod
+		#if ! lsmod | grep -q ^dm_mod; then
+		#if test $(lsmod | awk '/^'dm_mod'/{print $3}') != 0; then 
+		#	omsg 1
+		#	return 1
+		#fi
+		# FIXME: stop $NAME # don't stop if required by a running one
+		modprobe -qr dm_mod
 		omsg $?
 		;;
 
 	status)
-		if lsmod | grep -q ^dm_mod; then
-			echo $NAME running
-		else
+		if lsmod | awk '/^dm_mod/{if ($3 != "0") exit 1}'; then
 			echo $NAME stopped
+			return 0
+		else
+			echo $NAME running
 			return 1
 		fi
 		;;

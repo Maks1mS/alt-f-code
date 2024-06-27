@@ -17,13 +17,13 @@ PROG=${PROG_DIR}/SABnzbd.py
 CONF_DIR=/etc/sabnzbd
 CONFF=$CONF_DIR/sabnzbd.conf
 
-PORT=$(awk '/[misc]/{ while (st = getline) { if ($1 == "port") {print $3; exit}}}' $CONFF)
 DL_DIR=$(sed -n 's|^dirscan_dir *= *\(.*\)|\1|p' $CONFF)
 
 PID_DIR=/var/run/sabnzbd
-RC_PIDFILE=$PID_DIR/sabnzbd-$PORT.pid
+PID_FILE=$PID_DIR/sabnzbd.pid
+RC_PIDFILE=$PID_FILE
 
-OPTS="--daemon --pid=$PID_DIR --config-file $CONFF"
+OPTS="--daemon --pidfile=$PID_FILE --config-file $CONFF"
 
 . /etc/init.d/common
 

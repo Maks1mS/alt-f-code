@@ -63,10 +63,9 @@ if test "$submit" = "Submit" -o "$chpass" = "ChangePass"; then
 		chown -R $nick:$gid "/home/$uname"
 		addgroup $nick backup
 
-		# why doesn't rsync uses unix authorization mechanisms?!
-		echo -e "\n[$nick]\n\tpath = /home/$uname\n\tcomment = $uname home folder\n\
+		echo -ne "\n[$nick]\n\tpath = /home/$uname\n\tcomment = $uname home folder\n\
 \tread only = no\n\tauth users = $nick\n\tuid = $nick\n\tgid = users\n" >> $CONFR
-		echo -e "\n[$uname]\n\tpath = /home/$uname\n\tcomment = $uname home folder\n\
+		echo -ne "\n[$uname]\n\tpath = /home/$uname\n\tcomment = $uname home folder\n\
 \tread only = no\n\tauth users = $nick\n\tuid = $nick\n\tgid = users\n" >> $CONFR
 	fi
 
@@ -91,8 +90,8 @@ elif test "$create_dir" = "CreateDir"; then
         msg "You must select a filesystem"
 	fi
 
-	part=/dev/$(httpd -d $part)
-	mp="$(awk -v part=$part '$1 == part {print $2}' /proc/mounts)"
+	part=$(httpd -d $part)
+	mp="$(awk '/\/dev\/'$part'[[:space:]]/{print $2}' /proc/mounts)"
 	mkdir -p "$mp"/Users
 	ln -sf "$mp"/Users /home
 

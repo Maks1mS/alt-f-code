@@ -5,5 +5,5 @@ Depends: openssh-sftp, ipkg, openssl
 Architecture: arm
 Priority: optional
 Section: networking
-Source: http://www.openssh.com/
+Source: https://www.openssh.com/
 Maintainer: jcard

@@ -2,7 +2,7 @@
 #
 # pycrypto
 #
-#############################################################
+############################################################
 
 PYCRYPTO_VERSION = 2.6.1
 PYCRYPTO_SOURCE = pycrypto-$(PYCRYPTO_VERSION).tar.gz
@@ -16,9 +16,9 @@ PYCRYPTO_LIBTOOL_PATCH = NO
 PYCRYPTO_DIR:=$(BUILD_DIR)/pycrypto-$(PYCRYPTO_VERSION)
 PYCRYPTO_CAT:=$(ZCAT)
 
-PYCRYPTO_BINARY:=pycrypto.so
-PYCRYPTO_SITE_PACKAGE_DIR=usr/lib/python$(PYTHON_VERSION_MAJOR)/site-packages/Crypto
-PYCRYPTO_TARGET_BINARY:=$(PYCRYPTO_SITE_PACKAGE_DIR)/../$(PYCRYPTO_BINARY)
+PYCRYPTO_BINARY:=_counter.so
+PYCRYPTO_SITE_PACKAGE_DIR:=usr/lib/python2.7/site-packages/Crypto
+PYCRYPTO_TARGET_BINARY=$(PYCRYPTO_SITE_PACKAGE_DIR)/Util/$(PYCRYPTO_BINARY)
 
 PYCRYPTO_CFLAGS = CFLAGS+=" -I$(STAGING_DIR)/usr/include/python$(PYTHON_VERSION_MAJOR)"
 
@@ -59,14 +59,15 @@ $(PYCRYPTO_DIR)/.build: $(PYCRYPTO_DIR)/.configured
 $(TARGET_DIR)/$(PYCRYPTO_TARGET_BINARY): $(PYCRYPTO_DIR)/.build
 	tar -C $(TARGET_DIR)/usr -xf $(PYCRYPTO_DIR)/dist/pycrypto-$(PYCRYPTO_VERSION).$(GNU_TARGET_NAME).tar.gz
 	find $(TARGET_DIR)/$(PYCRYPTO_SITE_PACKAGE_DIR) -name \*.pyc -delete
+	touch $(TARGET_DIR)/$(PYCRYPTO_TARGET_BINARY)
 
-pycrypto: uclibc python $(TARGET_DIR)/$(PYCRYPTO_TARGET_BINARY)
+pycrypto: python $(TARGET_DIR)/$(PYCRYPTO_TARGET_BINARY)
 
 pycrypto-unpack: $(PYCRYPTO_DIR)/.unpacked
 
-pycrypto-build: $(PYCRYPTO_DIR)/.build
+pycrypto-build: python $(PYCRYPTO_DIR)/.build
 
-pycrypto-install: $(TARGET_DIR)/$(PYCRYPTO_TARGET_BINARY)
+pycrypto-install: python $(TARGET_DIR)/$(PYCRYPTO_TARGET_BINARY)
 
 pycrypto-dirclean:
 	rm -rf $(PYCRYPTO_DIR)
@@ -75,7 +76,7 @@ pycrypto-dirclean:
 #
 # Toplevel Makefile options
 #
-#############################################################
+############################################################
 ifeq ($(BR2_PACKAGE_PYCRYPTO),y)
 TARGETS+=pycrypto
 endif

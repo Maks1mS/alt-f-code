@@ -15,7 +15,7 @@ LIBDLNA_INSTALL_STAGING = YES
 
 LIBDLNA_DEPENDENCIES = uclibc ffmpeg
 
-LIBDLNA_CONF_OPT = --disable-static --cross-compile --cross-prefix=arm-linux-uclibcgnueabi-
+LIBDLNA_CONF_OPT = --disable-static --cross-compile --cross-prefix=arm-linux-
 
 $(eval $(call AUTOTARGETS,package/multimedia,libdlna))
 

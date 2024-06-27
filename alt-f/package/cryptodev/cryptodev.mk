@@ -4,9 +4,10 @@
 #
 ############################################################
 
-CRYPTODEV_VERSION:=1.9
+CRYPTODEV_VERSION:=1.13
 CRYPTODEV_SOURCE:=cryptodev-linux-$(CRYPTODEV_VERSION).tar.gz
-CRYPTODEV_SITE:=https://github.com/cryptodev-linux/cryptodev-linux/archive
+CRYPTODEV_SITE:=https://github.com/cryptodev-linux/cryptodev-linux/archive/refs/tags
+
 CRYPTODEV_DIR:=$(BUILD_DIR)/cryptodev-$(CRYPTODEV_VERSION)
 CRYPTODEV_MOD:=cryptodev.ko
 CRYPTODEV_TARGET_MOD:=cryptodev/cryptodev.ko
@@ -54,6 +55,9 @@ cryptodev-extract: $(CRYPTODEV_DIR)/.source
 
 cryptodev-source: $(DL_DIR)/$(CRYPTODEV_SOURCE)
 
+cryptodev-clean:
+	$(MAKE) KERNEL_DIR=$(LINUX_DIR) CC=$(TARGET_CC) CFLAGS="$(TARGET_CFLAGS)" -C $(CRYPTODEV_DIR) clean
+	
 cryptodev-dirclean:
 	rm -rf $(CRYPTODEV_DIR)
 

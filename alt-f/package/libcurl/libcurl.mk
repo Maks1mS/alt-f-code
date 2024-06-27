@@ -36,10 +36,12 @@ else
 LIBCURL_CONF_OPT += $(DISABLE_IPV6)
 endif
 
+#$(eval $(call AUTOTARGETS_HOST,package,libcurl))
 $(eval $(call AUTOTARGETS,package,libcurl))
 
 $(LIBCURL_HOOK_POST_INSTALL):
 	rm -f $(STAGING_DIR)/usr/bin/curl
+	cp $(STAGING_DIR)/usr/bin/curl-config $(HOST_DIR)/usr/bin/curl-config
 	rm -f $(TARGET_DIR)/usr/bin/curl-config \
 	       $(if $(BR2_PACKAGE_CURL),,$(TARGET_DIR)/usr/bin/curl)
 	touch $@

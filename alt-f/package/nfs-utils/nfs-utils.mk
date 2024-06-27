@@ -13,13 +13,15 @@ NFS_UTILS_DIR:=$(BUILD_DIR)/nfs-utils-$(NFS_UTILS_VERSION)
 NFS_UTILS_BINARY:=utils/nfsd/nfsd
 NFS_UTILS_TARGET_BINARY:=usr/sbin/rpc.nfsd
 
-BR2_NFS_UTILS_CFLAGS=
+NFS_UTILS_XCFLAGS=-DUTS_RELEASE='\"$(LINUX_HEADERS_VERSION)\"'
 
 ifeq ($(BR2_LARGEFILE),)
-BR2_NFS_UTILS_CFLAGS+=-U_LARGEFILE64_SOURCE -U_FILE_OFFSET_BITS
+NFS_UTILS_XCFLAGS+=-U_LARGEFILE64_SOURCE -U_FILE_OFFSET_BITS
 endif
 
-BR2_NFS_UTILS_CFLAGS+=-DUTS_RELEASE='\"$(LINUX_HEADERS_VERSION)\"'
+# rpcgen is needed (also for samba4).
+# for now install the rpcgen host package, latter compile rpcsvc-proto for host
+# source package: http://github.com/thkukuk/rpcsvc-proto
 
 $(DL_DIR)/$(NFS_UTILS_SOURCE):
 	 $(call DOWNLOAD,$(NFS_UTILS_SITE),$(NFS_UTILS_SOURCE))
@@ -35,8 +37,7 @@ $(NFS_UTILS_DIR)/.configured: $(NFS_UTILS_DIR)/.unpacked
 	(cd $(NFS_UTILS_DIR); rm -rf config.cache; \
 		$(TARGET_CONFIGURE_OPTS) \
 		$(TARGET_CONFIGURE_ARGS) \
-		CFLAGS="$(TARGET_CFLAGS) $(BR2_NFS_UTILS_CFLAGS)" \
-		CONFIG_SQLITE3_FALSE='#' CONFIG_NFSDCLD_FALSE='#' \
+		CFLAGS="$(TARGET_CFLAGS) $(NFS_UTILS_XCFLAGS) $(BR2_PACKAGE_NFS_UTILS_OPTIM)" \
 		knfsd_cv_bsd_signals=no \
 		./configure \
 		--target=$(GNU_TARGET_NAME) \
@@ -45,13 +46,13 @@ $(NFS_UTILS_DIR)/.configured: $(NFS_UTILS_DIR)/.unpacked
 		--prefix=/usr \
 		--without-tcp-wrappers \
 		--without-krb5 \
+		--disable-osdlogin \
 		--disable-uuid \
 		--disable-nfsv4 \
 		--disable-nfsv41 \
 		--disable-gss \
-		--disable-tirpc \
 		--disable-static \
-		--disable-ipv6 \
+		$(DISABLE_IPV6) \
 	)
 	touch $@
 
@@ -60,7 +61,7 @@ $(NFS_UTILS_DIR)/$(NFS_UTILS_BINARY): $(NFS_UTILS_DIR)/.configured
 		RPCGEN=/usr/bin/rpcgen -C $(NFS_UTILS_DIR)
 	touch -c $@
 
-NFS_UTILS_TARGETS_ := usr/sbin/mount.nfs4 usr/sbin/umount.nfs4 	\
+NFS_UTILS_TARGETS_ := usr/sbin/osd_login usr/sbin/mount.nfs4 usr/sbin/umount.nfs4 	\
 	usr/sbin/nfsiostat usr/sbin/mountstats usr/sbin/nfsstat
 NFS_UTILS_TARGETS_y := usr/sbin/exportfs usr/sbin/rpc.mountd \
 	usr/sbin/rpc.nfsd usr/sbin/rpc.statd usr/sbin/sm-notify
@@ -89,7 +90,7 @@ nfs-utils-configure: $(NFS_UTILS_DIR)/.configured
 
 nfs-utils-build: $(NFS_UTILS_DIR)/$(NFS_UTILS_BINARY)
 
-nfs-utils: uclibc host-autoconf host-fakeroot $(TARGET_DIR)/$(NFS_UTILS_TARGET_BINARY)
+nfs-utils: uclibc host-autoconf host-fakeroot libtirpc $(TARGET_DIR)/$(NFS_UTILS_TARGET_BINARY)
 
 nfs-utils-uninstall:
 	$(MAKE) -i DESTDIR=$(TARGET_DIR) -C $(NFS_UTILS_DIR) uninstall

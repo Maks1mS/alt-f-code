@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/sh
 
 ln -sf /usr/sbin/rcscript /sbin/rcavahi_daemon 
 rcavahi_daemon status

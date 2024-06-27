@@ -16,7 +16,7 @@ cat<<-EOF
 			return false;
 		}
 	</script>
-	<form name=hosts action=automatic_proc.cgi method=post>
+	<form name=hosts action=automatic_proc.cgi method="post">
 	<fieldset><legend>RSS Feeds</legend>
 	<table>
 	<tr><th>Feed URL</th><th>Private Cookie</th></tr>

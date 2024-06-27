@@ -1,6 +1,6 @@
 Package: wget
 Description: Network utility to retrieve files from http/ftp/etc...
-Version: 1.20.3-1
+Version: 1.24.5
 Depends: ipkg, libiconv, openssl
 Architecture: arm
 Priority: required

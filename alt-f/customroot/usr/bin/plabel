@@ -35,6 +35,7 @@ fi
 type=$(blkid -s TYPE -o value -w /dev/null -c /dev/null $dsk)
 
 case $type in
+	exfat) prog=exfatlabel ;;
 	vfat) prog=dosfslabel ;;
 	ntfs) prog=ntfslabel; opt="-f" ;;
 	ext2|ext3|ext4) prog=e2label ;;

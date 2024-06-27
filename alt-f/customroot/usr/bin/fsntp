@@ -11,7 +11,7 @@ intpd() {
 	busybox ntpd $@
 }
 
-server=0.pool.ntp.org
+server=pool.ntp.org
 
 if test $# = 0; then
 	intpd -wqp $server

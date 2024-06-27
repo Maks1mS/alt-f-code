@@ -122,3 +122,5 @@
 ./usr/share/mysql/spanish/errmsg.sys
 ./usr/share/mysql/swedish/errmsg.sys
 ./usr/share/mysql/ukrainian/errmsg.sys
+./usr/www/cgi-bin/mysqld.cgi
+./usr/www/cgi-bin/mysqld_proc.cgi

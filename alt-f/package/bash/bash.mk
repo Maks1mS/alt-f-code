@@ -39,3 +39,7 @@ BASH_CONF_OPT = $(DISABLE_NLS) \
 		--without-bash-malloc
 
 $(eval $(call AUTOTARGETS,package,bash))
+
+$(BASH_HOOK_POST_INSTALL):
+	$(RM) -r $(TARGET_DIR)/etc/bash_completion.d
+	touch $@

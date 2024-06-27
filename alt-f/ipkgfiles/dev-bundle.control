@@ -6,5 +6,5 @@ Description: Everything needed to compile programs on the DNS-323.
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://gcc.gnu.org/ http://www.gnu.org/software/binutils/
+Source: https://gcc.gnu.org
 Maintainer: jcard

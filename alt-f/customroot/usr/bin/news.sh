@@ -75,15 +75,6 @@ if test -s $MISCC; then
 	. $MISCC
 fi
 
-if test -z "$NEWS_CHK" -o -z "$FILES_CHK"; then # FIXME: to remove after RC4
-	#echo NEWS_CHK=$(date +%s) >> $MISCC
-	#echo FILES_CHK=$(date +%s) >> $MISCC
-	eval $(grep NEWS_CHK /rootmnt/ro/etc/misc.conf)
-	echo NEWS_CHK=$NEWS_CHK >> $MISCC
-	eval $(grep FILES_CHK /rootmnt/ro/etc/misc.conf)
-	echo FILES_CHK=$FILES_CHK >> $MISCC
-fi
-
 last_files=$(parse_rss $FILES_URL $FILES_CHK)
 #last_files=$(parse_rss /root/rss $FILES_CHK)
 #echo last_files=$last_files
@@ -101,4 +92,8 @@ last_news=$(parse_rss $NEWS_URL $NEWS_CHK)
 if test "$last_news" -gt "$NEWS_CHK"; then
 	sed -i '/^NEWS_CHK=/d' $MISCC
 	echo NEWS_CHK=$last_news >> $MISCC
+fi
+
+if grep -q '/pkgs/' $LOGF 2> /dev/null; then
+	ipkg update >& /dev/null
 fi

@@ -6,6 +6,7 @@ read_args
 
 CONF=/etc/backup.conf
 SMB_CONF=/etc/samba/smb.conf
+CONF_M=/etc/misc.conf
 
 #debug
 
@@ -34,6 +35,11 @@ elif test -n "$BackupNow"; then
 	backup $BackupNow &
 
 elif test -n "$Submit"; then
+
+	sed -i /^BACKUP_LOG=/d $CONF_M
+	if test -n "$backlog"; then
+		echo BACKUP_LOG=yes >> $CONF_M
+	fi
 
 	rm -f $CONF
 
@@ -84,8 +90,8 @@ elif test -n "$CreateDir"; then
         	msg "You must select a filesystem"
 	fi
 
-	part=/dev/$(httpd -d $part)
-	mp="$(awk -v part=$part '$1 == part {print $2}' /proc/mounts)"
+	part=$(httpd -d $part)
+	mp="$(awk '/\/dev\/'$part'[[:space:]]/{print $2}' /proc/mounts)"
 	mkdir -p "$mp"/Backup
 	chown backup:backup "$mp"/Backup
 	chmod g+rwx,o+rx "$mp"/Backup

@@ -4,10 +4,13 @@
 #
 ############################################################
 
-NETSNMP_VERSION:=5.7.3
-NETSNMP_SITE:=$(BR2_SOURCEFORGE_MIRROR)/project/net-snmp/net-snmp/$(NETSNMP_VERSION)
+NETSNMP_VERSION:=5.8.1
+NETSNMP_SITE:=$(BR2_SOURCEFORGE_MIRROR)/project/net-snmp/net-snmp/$(NETSNMP_VERSION)-pre-releases
+
+#NETSNMP_VERSION:=5.7.3
+#NETSNMP_SITE:=$(BR2_SOURCEFORGE_MIRROR)/project/net-snmp/net-snmp/$(NETSNMP_VERSION)
 NETSNMP_DIR:=$(BUILD_DIR)/net-snmp-$(NETSNMP_VERSION)
-NETSNMP_SOURCE:=net-snmp-$(NETSNMP_VERSION).tar.gz
+NETSNMP_SOURCE:=net-snmp-$(NETSNMP_VERSION).rc1.tar.gz
 NETSNMP_INSTALL_STAGING = YES
 NETSNMP_LIBTOOL_PATCH = NO
 NETSNMP_MAKE = $(MAKE1)
@@ -36,6 +39,13 @@ else
 NETSNMP_CONFIGURE_OPENSSL:=--without-openssl
 endif
 
+ifeq ($(BR2_PACKAGE_LIBNL),y)
+NETSNMP_DEPENDENCIES += libnl
+NETSNMP_LIBNL=--with-nl
+else
+NETSNMP_LIBNL=--without-nl
+endif
+
 NETSNMP_CONF_OPT = $(NETSNMP_CONFIGURE_OPENSSL) \
 	--with-out-transports="$(NETSNMP_WO_TRANSPORT)"  \
 	--with-out-mib-modules=" " \
@@ -46,11 +56,16 @@ NETSNMP_CONF_OPT = $(NETSNMP_CONFIGURE_OPENSSL) \
 	--with-persistent-directory=/var/lib/snmp \
 	--enable-ucd-snmp-compatibility \
 	--enable-shared --disable-static \
-	--without-rpm --disable-manuals 
+	--without-rpm --disable-manuals $(NETSNMP_LIBNL)
 
 NETSNMP_CONF_ENV = ac_cv_NETSNMP_CAN_USE_SYSCTL=no
 
 $(eval $(call AUTOTARGETS,package,netsnmp))
+
+$(NETSNMP_HOOK_POST_CONFIGURE):
+	$(SED) 's/.*HAVE_LINUX_NETLINK_H.*/#define HAVE_LINUX_NETLINK_H 1/' \
+	-e 's/.*HAVE_LINUX_RTNETLINK_H.*/#define HAVE_LINUX_RTNETLINK_H 1/' $(NETSNMP_DIR)/include/net-snmp/net-snmp-config.h
+	touch $@
 
 $(NETSNMP_HOOK_POST_INSTALL):
 	rm -rf $(TARGET_DIR)/usr/share/man $(TARGET_DIR)/usr/share/doc $(TARGET_DIR)/usr/share/info
@@ -58,6 +73,7 @@ $(NETSNMP_HOOK_POST_INSTALL):
 		-e "s|^exec_prefix=.*|exec_prefix=\'$(STAGING_DIR)/usr\'|g" \
 		-e "s|^libdir=.*|libdir=\'$(STAGING_DIR)/usr/lib\'|g" \
 		$(STAGING_DIR)/usr/bin/net-snmp-config
+	cp $(STAGING_DIR)/usr/bin/net-snmp-config $(HOST_DIR)/usr/bin
 	# Copy the .conf files.
 	$(INSTALL) -D -m 0644 $(NETSNMP_DIR)/EXAMPLE.conf $(TARGET_DIR)/etc/snmp/EXAMPLE.conf
 	# Install the "broken" headers

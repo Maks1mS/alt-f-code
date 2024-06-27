@@ -20,3 +20,9 @@ config BR2_PACKAGE_KEXEC_LZMA
 	select BR2_PACKAGE_XZ_LIBS
 	help
 	  Support for lzma/xz compressed kernel images
+
+config BR2_PACKAGE_KEXEC_OPTIM
+	string "kexec optim"
+	depends on BR2_PACKAGE_KEXEC
+	help
+	  Compile optimization options (-Os, -O2)

@@ -4,7 +4,8 @@
 #
 ############################################################
 
-LIBSODIUM_VERSION = 1.0.15
+#LIBSODIUM_VERSION = 1.0.15
+LIBSODIUM_VERSION = 1.0.18
 LIBSODIUM_SOURCE = libsodium-$(LIBSODIUM_VERSION).tar.gz
 LIBSODIUM_SITE = https://download.libsodium.org/libsodium/releases
 

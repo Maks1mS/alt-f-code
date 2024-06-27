@@ -23,7 +23,9 @@ MYSQL_CONF_ENV = \
 	ac_cv_have_decl_HAVE_IB_ATOMIC_PTHREAD_T_SOLARIS=no \
 	ac_cv_have_decl_HAVE_IB_GCC_ATOMIC_BUILTINS=yes \
 	mysql_cv_new_rl_interface=yes \
-	ac_cv_func_isnan=yes
+	ac_cv_path_HOSTNAME="/bin/hostname" \
+	ac_cv_func_isnan=yes \
+	ac_cv_func_finite=yes
 
 MYSQL_CONF_OPT = \
 	--with-unix-socket-path=/var/run/mysql/mysql.sock \
@@ -40,9 +42,12 @@ MYSQL_CONF_OPT = \
 	--disable-mysql-maintainer-mode \
 	--with-charset=utf8
 
-ifeq ($(BR2_PACKAGE_OPENSSL),y)
-MYSQL_DEPENDENCIES += openssl
-MYSQL_CONF_OPT += -with-ssl=$(STAGING_DIR)/usr
+ifeq ($(BR2_PACKAGE_OPENSSL_COMPAT),y)
+MYSQL_DEPENDENCIES += openssl-compat
+MYSQL_CONF_OPT += -with-ssl=$(STAGING_DIR)/compat/usr
+MYSQL_CONF_ENV += CFLAGS="-I$(STAGING_DIR)/compat/usr/include $(TARGET_CFLAGS)" \
+	CXXFLAGS="-I$(STAGING_DIR)/compat/usr/include $(TARGET_CXXFLAGS)" \
+	LDFLAGS="-L$(STAGING_DIR)/compat/usr/lib $(TARGET_LDFLAGS)" 
 endif
 
 ifeq ($(BR2_PACKAGE_ZLIB),y)
@@ -72,6 +77,10 @@ else
 MYSQL_CONF_OPT += --without-debug
 endif
 
+MYSQL_CONF_ENV += CFLAGS="-I$(STAGING_DIR)/compat/usr/include $(TARGET_CFLAGS)" \
+	CXXFLAGS="-fpermissive -I$(STAGING_DIR)/compat/usr/include $(TARGET_CXXFLAGS)" \
+	LDFLAGS="-L$(STAGING_DIR)/compat/usr/lib $(TARGET_LDFLAGS)"
+	
 $(eval $(call AUTOTARGETS,package/database,mysql))
 $(eval $(call AUTOTARGETS_HOST,package/database,mysql))
 
@@ -87,6 +96,7 @@ $(MYSQL_HOST_BUILD):
 
 $(MYSQL_HOST_INSTALL):
 	$(INSTALL) -m 0755  $(@D)/sql/gen_lex_hash  $(HOST_DIR)/usr/bin/
+	ln -sf $(STAGING_DIR)/usr/bin/mysql_config $(HOST_DIR)/usr/bin/mysql_config
 	touch $@
 
 else

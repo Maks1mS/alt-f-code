@@ -8,64 +8,48 @@ write_header "NTP Setup"
 CONFN=/etc/ntp.conf
 CONFF=/etc/misc.conf
 
-if test -e $CONFF; then
-	. $CONFF
+# remove adjtime method, ntpd is now builtin in busybox
+if grep -q ^NTPD_DAEMON $CONFN; then
+	sed -i -e '/^NTPD_DAEMON/d' -e '/NTPD_BOOT/d' -e '/NTPD_CRON/d' $CONFN
+	# FIXME: cron remove "/usr/sbin/adjtime"
 fi
 
-sel_cron=""; sel_daemon=""; sel_boot=""
-if test "$NTPD_DAEMON" = "yes"; then
-	sel_daemon="checked"
+sel_server=""; sel_client=""
+if test "$NTPD_SERVER" = "yes"; then
+        sel_server="checked"
 else
-	sel_cron="checked"
-	croni=$NTPD_DAEMON
+        sel_client="checked"
 fi
-
-if test "$NTPD_BOOT" = "yes"; then
-	sel_boot="CHECKED"
-fi
-
-opt=""
-for i in 24 12 6; do
-	if test "$i" = "$croni"; then
-		opt="$opt<option selected>$i</option>"
-	else
-		opt="$opt<option>$i</option>"
-	fi
-done
 
 cat <<-EOF
-	<script type="text/javascript">
-	function toogle() {
-		document.getElementById("bootcheck").disabled = document.getElementById("bootcheck").disabled ? false : true;
-	 }
-	</script>
-
-	<form name=ntp action=ntp_proc.cgi method="post" >
-	<input type=radio $sel_daemon name=runasdaemon value=yes>
-		Run continuously as a server<br>
-	<input type=radio $sel_cron name=runasdaemon value=no>
-	Run once every <select name=croni>$opt</select> hours<br><br>
-	<input type=checkbox id=bootcheck $sel_boot name=runatboot value=yes>
-		Adjust time when starts<br> 
-	<br><table>
+	<form name=ntp action=ntp_proc.cgi method="post">
+	<input type=radio $sel_server name=runasserver value=yes>
+			Run as a server<br>
+	<input type=radio $sel_client name=runasserver value=no>
+			Run as a client only<p>
+	<table>
 EOF
 
 cnt=1
-while read arg server; do
+while read arg server cmt; do
 	if test "$arg" = "server" -a "$server" != "127.127.1.0"; then
-		echo "<tr><td>Server $cnt</td>
-			<td><input type=text size=20 name="server_$cnt" value="$server"></td></tr>"
+		cat<<-EOF
+			<tr><td>Server $cnt</td>
+			<td><input type=text size=20 name="server_$cnt" value="$server">
+			<input type=hidden name="cmt_$cnt" value="$cmt"></td></tr>
+		EOF
 		cnt=$(($cnt+1))
 	fi
 done < $CONFN
 
-for i in $(seq $cnt 3); do
+for i in $(seq $cnt $((cnt+2))); do
 		echo "<tr><td>Server $i</td>
 			<td><input type=text size=20 name="server_$i"></td></tr>"
 done
 
 cat<<-EOF
 	</table>
+	<input type=hidden name=cnt_ntp value="$i">
 	<p><input type=submit value=Submit>$(back_button)
 	</form></body></html>
 EOF

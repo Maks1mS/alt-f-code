@@ -4,7 +4,10 @@
 #
 #############################################################
 
-NTP_VERSION:=4.2.6p5
+#http://www.eecis.udel.edu/~ntp/ntp_spool/ntp4/ntp-4.2/ntp-4.2.8p15.tar.gz
+
+#NTP_VERSION:=4.2.6p5
+NTP_VERSION:=4.2.8p15
 NTP_SOURCE:=ntp-$(NTP_VERSION).tar.gz
 NTP_SITE:=http://www.eecis.udel.edu/~ntp/ntp_spool/ntp4/ntp-4.2
 NTP_DIR:=$(BUILD_DIR)/ntp-$(NTP_VERSION)
@@ -12,7 +15,7 @@ NTP_CAT:=$(ZCAT)
 NTP_BINARY:=ntpd/ntpd
 NTP_TARGET_BINARY:=usr/sbin/ntpd
 
-NTP_CFLAGS=-Os
+NTP_CFLAGS = CFLAGS="$(TARGET_CFLAGS) $(BR2_PACKAGE_NTP_OPTIM)"
 
 ifeq ($(BR2_INET_IPV6),y)
 NTP_CONF_OPT += --enable-ipv6
@@ -45,7 +48,7 @@ $(NTP_DIR)/.configured: $(NTP_DIR)/.patched
 		$(TARGET_CONFIGURE_OPTS) \
 		$(TARGET_CONFIGURE_ENV) \
 		$(TARGET_CONFIGURE_ARGS) \
-		CFLAGS="$(TARGET_CFLAGS) $(NTP_CFLAGS)" \
+		$(NTP_CFLAGS) \
 		ac_cv_lib_md5_MD5Init=no \
 		./configure \
 		--target=$(GNU_TARGET_NAME) \
@@ -69,6 +72,8 @@ $(NTP_DIR)/.configured: $(NTP_DIR)/.patched
 		--disable-tickadj \
 		--with-openssl-incdir=$(STAGING_DIR)/usr/include \
 		--with-openssl-libdir=$(STAGING_DIR)/usr/lib \
+		--with-yielding-select=no --without-threads \
+		--with-hardenfile=/dev/null \
 	)
 	touch $@
 
@@ -92,7 +97,7 @@ ntp-configure: $(NTP_DIR)/.configured
 
 ntp-build: $(NTP_DIR)/$(NTP_BINARY)
 
-ntp: uclibc openssl $(TARGET_DIR)/$(NTP_TARGET_BINARY)
+ntp: uclibc openssl libevent2 $(TARGET_DIR)/$(NTP_TARGET_BINARY)
 
 ntp-clean:
 	rm -f $(TARGET_DIR)/usr/sbin/ntpd $(TARGET_DIR)/usr/bin/sntp \

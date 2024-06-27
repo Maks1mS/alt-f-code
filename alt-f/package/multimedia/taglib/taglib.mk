@@ -28,4 +28,5 @@ $(TAGLIB_HOOK_POST_INSTALL):
 		-e "s|^exec_prefix=.*|exec_prefix=\'$(STAGING_DIR)/usr\'|g" \
 		-e "s|^libdir=.*|libdir=\'$(STAGING_DIR)/usr/lib\'|g" \
 		$(STAGING_DIR)/usr/bin/taglib-config
+	ln -sf $(STAGING_DIR)/usr/bin/taglib-config $(HOST_DIR)/usr/bin/taglib-config
 	touch $@

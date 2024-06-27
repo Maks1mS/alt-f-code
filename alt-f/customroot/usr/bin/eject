@@ -64,7 +64,7 @@ eject_all() {
 	ret=0
 
 	for i in /dev/sd[a-z]*; do
-    	(cd /dev && ACTION=remove DEVTYPE=partition PWD=/dev MDEV=$(basename $i) /usr/sbin/hot.sh >& /dev/null)
+    	cd /dev && ACTION=remove DEVTYPE=partition PWD=/dev MDEV=$(basename $i) /usr/sbin/hot.sh >& /dev/null
 	    ret=$(($ret + $?))
 	done
 	return $ret

@@ -32,7 +32,7 @@ if ! test -s "$SECR"; then
 	fi
 	echo -e "$passwd\n$passwd" | smbpasswd -s -a root >& /dev/null
 
-	sed -i '/root/d' /etc/rsyncd.secrets
+	sed -i '/root/d' /etc/rsyncd.secrets >& /dev/null
 	echo -e "root:$passwd" >> /etc/rsyncd.secrets
 
 	if test -z "$(loadsave_settings -ls)"; then
@@ -60,7 +60,7 @@ chmod og-r /tmp/cookie
 
 echo -e "HTTP/1.1 303\r"
 echo -e "Content-Type: text/html\r"
-echo -e "Set-Cookie: ALTFID=$id; HttpOnly\r"
+echo -e "Set-Cookie: ALTFID=$id; HttpOnly; SameSite=Strict\r"
 echo -e "Location: $loc\r\n\r"
 
 #enddebug

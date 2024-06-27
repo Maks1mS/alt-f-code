@@ -5,5 +5,5 @@ Depends: ipkg
 Architecture: arm
 Priority: optional
 Section: networking
-Source: http://netcat.sourceforge.net
+Source: https://netcat.sourceforge.net
 Maintainer: jcard

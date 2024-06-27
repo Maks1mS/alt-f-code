@@ -1,3 +1,27 @@
+all boxes: rootfs runs from flash, slower but saving 23MB of memory (already done in 323/321)
+
+dns-320l/327L auto-powerup, etc in System->Utilities
+
+simple mysql-server webpage
+
+Setup Certs, fake rootCA and Lets's Encrypt certificates,etc
+
+Lighttpd with upnp port forwarding to serve a registed domain
+
+
+DNR-322L-rev-A now supported as its main board is identical to the DNS-320-rev-A, thanks to modellbauer for testing it.
+
+marvell-cesa working on 323/321
+
+kernel 4.14.87, ntfs and fuse removed from base firmware on dns-321/323. need to install ntfs-3g-ntfsprogs/ntfs-3g/kernel-modules-armv5
+
+USB UAS module re-added as a kernel module, see hot.sh for comments on how to disable if it troubles
+
+Allow more users in group, UCLIBC_*_BUFFER_SIZE 256 -> 1024
+
+TODO: use a stronger/longer password encryption method. Currently passwords are limited to 8 chars! thanks to Bill Rosenberg for uncovering it.
+ users will probably have to have to re-create their passwords.
+
 === October 13, 2017: Alt-F-1.0 is released
 
 Hi,

@@ -5,5 +5,5 @@ Depends: ncurses, ncurses-panel, readline, gettext, expat, sqlite, db, gdbm, bzi
 Architecture: arm
 Priority: optional
 Section: interpreters
-Source: http://www.python.org/
+Source: https://www.python.org
 Maintainer: jcard

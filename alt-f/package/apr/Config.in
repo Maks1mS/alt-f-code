@@ -8,4 +8,4 @@ config BR2_PACKAGE_APR
 	  and maintain software libraries that provide a predictable and
 	  consistent interface to underlying platform-specific implementations
 
-	  http://apr.apache.org/
+	  https://apr.apache.org/

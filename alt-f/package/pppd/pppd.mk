@@ -4,9 +4,11 @@
 #
 #############################################################
 
-PPPD_VERSION:=2.4.5
+#PPPD_VERSION:=2.4.5
+PPPD_VERSION:=2.4.9
 PPPD_SOURCE:=ppp-$(PPPD_VERSION).tar.gz
 PPPD_SITE:=https://download.samba.org/pub/ppp
+
 PPPD_DIR:=$(BUILD_DIR)/ppp-$(PPPD_VERSION)
 PPPD_CAT:=$(ZCAT)
 PPPD_BINARY:=pppd/pppd

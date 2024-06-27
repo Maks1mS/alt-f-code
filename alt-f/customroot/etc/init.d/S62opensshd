@@ -4,10 +4,6 @@ DESC="OpenSSH SSH/SFTP daemon"
 NAME=sshd
 TYPE=net
 
-NEED_ALTF_DIR=1
-
-. /etc/init.d/common
-
 SSH_DIR=/etc/ssh
 SSHD_PRIV_DIR=/var/run/empty
 SSHD_LOG=/var/log/opensshd.log
@@ -51,24 +47,17 @@ convert_keys() {
 sinit() {
 	mkdir -p $SSH_DIR $SSHD_PRIV_DIR
 	inetd_setup
-	rcdropbear init
 	convert_keys
 }
 
-if test "$1" = "init"; then
-	sinit
-	exit
-fi
+. /etc/init.d/common
 
 if check_inetd ssh sshd || check_inetd ssh_alt sshd; then
 	exit 2
 fi
 
 case "$1" in
-	start)
-		sinit
-		start /usr/sbin/$NAME -- $SSHD_OPTS
-		;;
+	start) start /usr/sbin/$NAME -- $SSHD_OPTS ;;
 	stop) stop $NAME ;;
 	status)	status $NAME ;;
 	reload) reload $NAME ;;

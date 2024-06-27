@@ -5,5 +5,5 @@ Depends: ffmpeg, jpeg, libpng, ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://code.google.com/p/ffmpegthumbnailer/
+Source: https://code.google.com/p/ffmpegthumbnailer/
 Maintainer: jcard

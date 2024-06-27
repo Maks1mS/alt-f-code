@@ -3,7 +3,13 @@
 # strace
 #
 #############################################################
+
 STRACE_VERSION:=4.5.18
+#STRACE_VERSION:=5.18 last
+#STRACE_VERSION:=4.21 nope
+#STRACE_VERSION:=4.6
+#STRACE_VERSION:=4.13
+
 STRACE_SOURCE:=strace-$(STRACE_VERSION).tar.bz2
 STRACE_SITE:=$(BR2_SOURCEFORGE_MIRROR)/project/strace/strace/$(STRACE_VERSION)
 

@@ -6,7 +6,7 @@ tune() {
 	days=$1
 	mounts=$2
 	while read ln; do
-		eval $(echo $ln | awk '/^(\/dev\/sd[a-z]|\/dev\/md[0-9])/{printf "part=%s;type=%s", $1, $3}')
+		eval $(echo $ln | awk '/^(\/dev\/sd[a-z]|\/dev\/md[0-9]|\/dev\/dm-[0-9])/{printf "part=%s;type=%s", $1, $3}')
 		if test "$type" = "ext2" -o "$type" = "ext3" -o "$type" = "ext4"; then
 
 			cnt=$(tune2fs -l $part 2> /dev/null | awk '/^Mount count:/ {FS=":"; cnt=$2; print cnt+1}')
@@ -48,9 +48,9 @@ check() {
 	case $2 in
 		ext2|ext3|ext4) 
 			if test "$3" = "fix"; then
-				opts="-fyD"
+				opts="-fy"
 			else
-				opts="-fpD"
+				opts="-fp"
 			fi
 			;;
 		vfat) opts="-a" ;;
@@ -67,19 +67,19 @@ check() {
 		trap "" 1
 		echo \$$ > \$0.pid
 		echo heartbeat > $PLED
-		mkfifo /tmp/fsck_pipe-$1 >& /dev/null
 		(while true; do
-			dd if=/tmp/fsck_pipe-$1 of=$logf- bs=64K count=1 2> /dev/null 
-			mv $logf- $logf
+			if test -s $logf-; then
+				tail -3 $logf- > $logf
+				dd if=/dev/null of=$logf- 2> /dev/null 
+			fi
 			sleep 10
 		done)&
 		wj=\$!
-		res=\$(nice fsck $opts -C5 /dev/$1 2>&1 5<> /tmp/fsck_pipe-$1)
+		res=\$(fsck $opts -C5 /dev/$1 2>&1 5>> $logf-)
 		st=\$?
 		if test -z "$(ls /tmp/check-* /tmp/convert-* 2>/dev/null)"; then echo none > $PLED; fi
 		kill \$wj
-		#echo > /tmp/fsck_pipe-$1
-		rm \$0* /tmp/fsck_pipe-$1
+		rm \$0* $logf $logf-
 		if test "\$st" = 0 -o "\$st" = 1; then
 			cd /dev
 			ACTION=add DEVTYPE=partition PWD=/dev MDEV=$1 /usr/sbin/hot.sh
@@ -119,7 +119,11 @@ format() {
 	fi
 
 	case $2 in
-		ext2|ext3|ext4) opts="-v -m 0 $raidopts"; id=83 ;;
+		ext2|ext3|ext4)
+			opts="-v -m 0 $raidopts"; id=83
+			if test -z "$TUNE_MOUNTS"; then TUNE_MOUNTS=50; fi
+			if test -z "$TUNE_DAYS"; then TUNE_DAYS=180; fi
+			;;
 		btrfs) opts="-f"; id=83 ;;
 		vfat) opts="-v"; id=c ;; # c Win95 FAT32 (LBA)
 		ntfs) opts="-v -f"; id=7 ;; # 7 HPFS/NTFS
@@ -163,6 +167,9 @@ format() {
 			fi
 		fi
 		rm \$0*
+		if test "${2::3}" = "ext"; then
+			tune2fs -c $TUNE_MOUNTS -i $TUNE_DAYS /dev/$1 >& /dev/null
+		fi
 		cd /dev
 		ACTION=add DEVTYPE=partition PWD=/dev MDEV=$1 /usr/sbin/hot.sh
 	EOF
@@ -199,18 +206,17 @@ resize() {
 		trap "" 1
 		echo \$$ > \$0.pid
 		echo heartbeat > $PLED
-		mkfifo /tmp/fsck_pipe-$1 >& /dev/null
 		(while true; do
-			dd if=/tmp/fsck_pipe-$1 of=$logf- bs=64K count=1 2> /dev/null 
-			mv $logf- $logf
+			if test -s $logf-; then
+				tail -3 $logf- > $logf
+				dd if=/dev/null of=$logf- 2> /dev/null 
+			fi
 			sleep 10
 		done)&
 		wj=\$!
-		res=\$(nice fsck -fp -C5 /dev/$1 2>&1 5<> /tmp/fsck_pipe-$1)
+		res=\$(fsck -fp -C5 /dev/$1 2>&1 5>> $logf-)
 		st=\$?
 		kill \$wj
-		#echo > /tmp/fsck_pipe-$1 # dd might be blocked
-		rm /tmp/fsck_pipe-$1
 		if test -z "$(ls /tmp/check-* /tmp/convert-* 2>/dev/null)"; then echo none > $PLED; fi
 
 		if ! test "\$st" = 0 -o "\$st" = 1; then
@@ -328,13 +334,15 @@ CONFT=/etc/misc.conf
 SERRORL=/var/log/systemerror.log
 PLED=/tmp/sys/power_led/trigger
 
+if test -f $CONFT; then . $CONFT; fi
+			
 if test "$Submit" = "tune"; then
 	sed -i '/^TUNE_DAYS/d' $CONFT
 	sed -i '/^TUNE_MOUNTS/d' $CONFT
-	echo TUNE_DAYS=$TUNE_DAYS >> $CONFT
-	echo TUNE_MOUNTS=$TUNE_MOUNTS >> $CONFT
+	echo TUNE_DAYS=\"$tune_days\" >> $CONFT
+	echo TUNE_MOUNTS=\"$tune_mounts\" >> $CONFT
 
-	tune $TUNE_DAYS $TUNE_MOUNTS
+	tune $tune_days $tune_mounts
 
 elif test -n "$setLabel"; then
 	eval part=\$part_$setLabel
@@ -370,10 +378,10 @@ elif test -n "$setMountOpts"; then
 	mv $TF /etc/fstab
 
 	uuid=$(blkid -o value -c /dev/null -s UUID /dev/$part | tr '-' '_')
-	sed -i '/^mopts_'${uuid}'=/d' /etc/misc.conf
+	sed -i '/^mopts_'${uuid}'=/d' $CONFT
 
 	if test "$mopts" != "defaults"; then
-		echo "mopts_${uuid}=$mopts" >> /etc/misc.conf
+		echo "mopts_${uuid}=\"$mopts\"" >> $CONFT
 	fi
 	
 	lmount "$part"

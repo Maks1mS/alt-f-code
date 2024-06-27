@@ -9,12 +9,6 @@ check_cookie
 #write_header "System utilities" "document.sysutilsf.reset()"
 write_header "System utilities"
 
-mktt ssl_tt "Erases current SSL certificates and creates a new one.<br>
-Needed when changing the host name or domain.<br>
-WARNING: if using https your browser will complain<br>
-and you will have to make it accept the new certificate.<br>
-Does not affects the ssh host key."
-
 mktt wday_tt "Week or Month day(s) to execute the command.<br><br><strong>Week day</strong>: 0-Sun, 1-Mon, 2-Tue...<br>0,2,4 means Sun, Tue and Thu<br>0-2 means Sun, Mon and Tue<br>* means everyday.<br><br><strong>Month day:</strong> first character must be a 'd',<br> 1 to 31 allowed, same rules as above applies,<br> e.g., 'd1,15' or 'd1-5' or 'd28' are valid.<br><br>No spaces allowed, no checks done"
 
 mktt hour_tt "'Hour' or 'Hour:Minute' or ':Minute' of the day to execute the command, 0..23:0..59.<br><br>Use the same format for hour and minute as in the \"When\" field."
@@ -85,7 +79,7 @@ cat<<-EOF
 	</td></tr>
 EOF
 
-if grep -qE 'DNS-320-Bx|DNS-320L-Ax|DNS327L-Ax' /tmp/board; then
+if grep -qE 'DNS-320-Bx|DNS-320L-Ax|DNS-327L-Ax' /tmp/board; then
 
 	if test -n "$POWERUP_AFTER_POWER_FAIL"; then
 		apr_chk="checked"
@@ -120,8 +114,8 @@ if grep -qE 'DNS-320-Bx|DNS-320L-Ax|DNS327L-Ax' /tmp/board; then
 
 	# scheduled power down
 	TF=$(mktemp -t)
-	if test -n "$POWERDOW_SET"; then
-		echo "$POWERDOW_SET" > $TF
+	if test -n "$POWERDOWN_SET"; then
+		echo "$POWERDOWN_SET" > $TF
 		read min hour monthday month weekday cmd < $TF
 		if test "$monthday" != '*'; then
 			weekday="d$monthday"
@@ -229,13 +223,7 @@ if test -s /etc/printcap; then
 	EOF
 fi
 
-eval $(openssl x509 -in /etc/ssl/certs/server.pem -noout -subject | awk  -F '/' '{print $2,$3,$4}')
-
 cat<<-EOF
-	<fieldset><legend>Current SSL Certificate</legend>
-Issued by <strong>$O</strong> for a <strong>$OU</strong> with <strong>$CN</strong> as hostname 
-	<input type=submit name="action" value="createNew" $(ttip ssl_tt)>
-	</fieldset>
 	</form>
 	<fieldset><legend>Theme</legend>
 	<form id="sysutilsf2" name="sysutilsf2" action="/cgi-bin/sys_utils_proc.cgi" method="post">
@@ -246,7 +234,7 @@ Issued by <strong>$O</strong> for a <strong>$OU</strong> with <strong>$CN</stron
 	<input type="hidden" name="theme" value=""><br><br>
 	</form>
 	<form action="/cgi-bin/sys_utils_proc.cgi" method="post" enctype="multipart/form-data">
-	Load theme from file: <input type=file name=theme.zip>
+	Load theme from file: <input type=file name=theme_zip>
 	<input type=submit name=action value="UploadTheme" onClick="return confirm('Uploading themes can make the webUI susceptible to exploitations and attacks.\n\nProceed?')"><br>
 	</form>
 	</fieldset>

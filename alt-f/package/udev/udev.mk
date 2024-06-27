@@ -3,7 +3,9 @@
 # udev
 #
 #############################################################
-UDEV_VERSION:=114
+
+#UDEV_VERSION:=114
+UDEV_VERSION:=182
 UDEV_VOLUME_ID_CURRENT:=0
 UDEV_VOLUME_ID_AGE:=79
 UDEV_VOLUME_ID_REVISION:=0
@@ -32,7 +34,33 @@ $(UDEV_DIR)/.unpacked: $(DL_DIR)/$(UDEV_SOURCE)
 	toolchain/patch-kernel.sh $(UDEV_DIR) package/udev \*.patch
 	touch $@
 
-$(UDEV_DIR)/$(UDEV_BINARY): $(UDEV_DIR)/.unpacked
+UDEV_CONF_ENV:=BLKID_CFLAGS=-I$(STAGING_DIR)/usr/include BLKID_LIBS=-L$(STAGING_DIR)/usr/lib
+UDEV_CONF_OPT:=--disable-gudev --disable-logging --disable-introspection --disable-mtd_probe --without-selinux --disable-keymap --disable-rule_generator --disable-gtk-doc --disable-manpages
+
+$(UDEV_DIR)/.configured: $(UDEV_DIR)/.unpacked
+	(cd $(UDEV_DIR); \
+	$(TARGET_CONFIGURE_OPTS) \
+	$(TARGET_CONFIGURE_ARGS) \
+	$(TARGET_CONFIGURE_ENV) \
+	$(UDEV_CONF_ENV) \
+	./configure \
+		--target=$(GNU_TARGET_NAME) \
+		--host=$(GNU_TARGET_NAME) \
+		--build=$(GNU_HOST_NAME) \
+		--prefix=/usr \
+		--exec-prefix=/usr \
+		--libdir=/usr/lib \
+		--libexecdir=/usr/lib \
+		--sysconfdir=/etc \
+		$(DISABLE_DOCUMENTATION) \
+		$(DISABLE_NLS) \
+		$(DISABLE_LARGEFILE) \
+		$(DISABLE_IPV6) \
+		$(QUIET) $(UDEV_CONF_OPT) \
+	)
+	touch $@
+
+$(UDEV_DIR)/$(UDEV_BINARY): $(UDEV_DIR)/.configured
 	$(MAKE) CROSS_COMPILE=$(TARGET_CROSS) CC=$(TARGET_CC) LD=$(TARGET_CC)\
 		CFLAGS="$(BR2_UDEV_CFLAGS)" \
 		USE_LOG=false USE_SELINUX=false \
@@ -58,10 +86,18 @@ ifneq ($(BR2_PACKAGE_UDEV_UTILS),y)
 	rm -f $(TARGET_DIR)/usr/bin/udevtest
 endif
 
+$(STAGING_DIR)/usr/include/udev/udev.h: $(TARGET_DIR)/$(UDEV_TARGET_BINARY)
+	$(INSTALL) -d $(STAGING_DIR)/usr/include/udev
+	$(INSTALL) -m 0644 $(UDEV_DIR)/*.h $(STAGING_DIR)/usr/include/udev
+	$(INSTALL) -m 0644 $(UDEV_DIR)/libudev.a $(STAGING_DIR)/usr/lib/
+
+
 #####################################################################
 .PHONY: udev-source udev udev-clean udev-dirclean
 
 udev: uclibc $(TARGET_DIR)/$(UDEV_TARGET_BINARY)
+
+udev-libs: udev $(STAGING_DIR)/usr/include/udev/udev.h
 
 udev-source: $(DL_DIR)/$(UDEV_SOURCE)
 

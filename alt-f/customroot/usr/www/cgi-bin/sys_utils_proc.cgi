@@ -4,10 +4,12 @@
 check_cookie
 
 if test "${CONTENT_TYPE%;*}" = "multipart/form-data"; then
-	if ! upfile=$(upload_file); then
-		msg "Error: Uploading failed: $upfile"
+	if ! res=$(upload_file); then
+		msg "Error: Uploading failed."
 		exit 0
 	fi
+	eval "$res"
+	upfile=$theme_zip
 	action="UploadTheme"
 else
 	read_args
@@ -49,9 +51,9 @@ showlog() {
 
 	if test -n "$filter_str"; then
 		pat=$(httpd -d $filter_str)
-		cat $1 | grep -iE "$pat"
+		cat $1 | grep -iE "$pat" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g'
 	else
-		cat $1
+		cat $1 | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g'
 	fi
 
 	cat<<-EOF
@@ -153,12 +155,8 @@ case "$action" in
 			echo POWERUP_ON_WOL=1 >> $CONFM
 		fi
 
-		TF=$(mktemp -t)
-		crontab -l > $TF 2> /dev/null
-		if test -z "$set_spd"; then
-			sed -i '\|/usr/sbin/poweroff|d' $TF
-			sed -i '/POWERDOW_SET/d' $CONFM
-		else
+		sed -i '/POWERDOWN_SET/d' $CONFM
+		if test -n "$set_spd"; then
 			at=$(httpd -d "$spd_at")
 			if echo $at | grep -q ':'; then
 				hour=${at%%:*}
@@ -178,22 +176,18 @@ case "$action" in
 				mday='*'
 			fi
 			if test -z "$wday" -o -z "$hour"; then
-				echo "invalid At or When format"
+				msg "invalid At or When format"
 			fi
 
-			sed -i '\|/usr/sbin/poweroff|d' $TF
-			echo "$min $hour $mday * $wday /usr/sbin/poweroff #!# Alt-F cron" >> $TF
-			sed -i '/POWERDOW_SET/d' $CONFM
-			echo "POWERDOW_SET=\"$min $hour $mday * $wday\"" >> $CONFM
+			echo "POWERDOWN_SET=\"$min $hour $mday * $wday\"" >> $CONFM
 		fi
-		crontab $TF 2> /dev/null
-		rm -f $TF
 
 		sed -i -e /POWERUP_ALARM_SET/d -e /POWERUP_ALARM_REPEAT/d $CONFM
 		if test -n "$set_spu"; then
 			when=$(httpd -d "$spu_when" | awk -F- '{printf("%d %d", $2, $3)}')
 			at=$(httpd -d "$spu_at" | awk -F: '{printf("%d %d", $1, $2)}')
 			echo POWERUP_ALARM_SET=\"$when $at\" >> $CONFM
+			#dns320l-daemon -x writealarm $when $at >& /dev/null
 
 			rep=$(httpd -d "$spu_rep")
 			rl=$( expr ${#rep} - 1)
@@ -206,7 +200,7 @@ case "$action" in
 			fi
 			echo POWERUP_ALARM_REPEAT=$rep >> $CONFM
 		fi
-		rcpower start >& /dev/null
+		rcpower restart >& /dev/null
 		;;
 
 	ClearPrintQueues)
@@ -281,10 +275,6 @@ case "$action" in
 			msg "The password can't be empty"
 		fi
 
-#		passwd="$(httpd -d $passwd)"
-#		if test -n "$passwd" -a "$passwd" = "$(cat $SECR)"; then
-#			rm -f $SECR
-#			rm -f /tmp/cookie
 		if test "$passwd" = $(cat /etc/web-secret /tmp/salt | md5sum - | cut -d" " -f1); then
 			rm -f $SECR /tmp/cookie /tmp/salt
 		else
@@ -292,30 +282,6 @@ case "$action" in
 		fi
 		gotopage /cgi-bin/login.cgi
 		exit 0
-		;;
-
-	createNew)
-		html_header
-		busy_cursor_start
-
-		BOX_PEM=/etc/ssl/certs/server.pem
-		CUPS_CRT=/etc/cups/ssl/server.crt
-		CUPS_KEY=/etc/cups/ssl/server.key
-		VSFTP_CERT=/etc/ssl/certs/vsftpd.pem
-		LIGHTY_PEM=/etc/ssl/certs/lighttpd.pem
-		STUNNEL_CERT=/etc/ssl/certs/stunnel.pem
-
-		rm -f $BOX_PEM $VSFTP_CERT $STUNNEL_CERT $LIGHTY_PEM $CUPS_CRT $CUPS_KEY
-
-		rcsslcert start >& /dev/null
-
-		rcvsftpd init >& /dev/null
-		rcstunnel init >& /dev/null
-		rclighttpd init >& /dev/null
-		rccups init >& /dev/null
-
-		busy_cursor_end
-		js_gotopage /cgi-bin/sys_utils.cgi
 		;;
 
 	Theme)
@@ -336,7 +302,10 @@ case "$action" in
 		;;
 
 	UploadTheme)
-		if ! unzip -p $upfile >& /dev/null; then err " The uploaded file can't be unziped."; fi
+		if ! unzip -p $upfile >& /dev/null; then
+			err " The uploaded file can't be unziped."
+			rm -f $upfile
+		fi
 
 		tl=$(unzip -l $upfile | awk '/[0-9]{2}-..-../{print $4}')
 		if test -z "$tl"; then err "Can't get file list from the uploaded file."; fi

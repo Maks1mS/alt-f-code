@@ -13,8 +13,7 @@ FUPPES_AUTORECONF = YES
 
 FUPPES_DEPENDENCIES = uclibc pkg-config pcre libxml2 sqlite
 
-FUPPES_CONF_ENV += MYSQL_CONFIG=no
-
+FUPPES_CONF_ENV += MYSQL_CONFIG=no CXXFLAGS="-fpermissive $(TARGET_CXXFLAGS)"
 FUPPES_CONF_OPT = --disable-mp4v2 --disable-transcoder-ffmpeg --disable-magickwand \
 	--disable-ffmpegthumbnailer --disable-libavformat --disable-lame \
 	--disable-flac --disable-vorbis --disable-mad --disable-taglib --enable-dlna 

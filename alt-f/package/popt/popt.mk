@@ -5,7 +5,7 @@
 #############################################################
 
 POPT_VERSION:=1.16
-#POPT_SITE:=http://rpm5.org/files/popt
+POPT_SOURCE:=popt-$(POPT_VERSION).tar.gz
 POPT_SITE:=https://ftp.openbsd.org/pub/OpenBSD/distfiles
 POPT_INSTALL_STAGING = YES
 POPT_INSTALL_TARGET = YES

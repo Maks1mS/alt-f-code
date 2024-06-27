@@ -5,5 +5,5 @@ Depends: ipkg
 Architecture: arm
 Priority: optional
 Section: networking
-Source: http://sourceforge.net/projects/gkernel/
+Source: https://sourceforge.net/projects/gkernel/
 Maintainer: jcard

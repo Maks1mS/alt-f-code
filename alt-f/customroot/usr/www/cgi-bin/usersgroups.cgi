@@ -20,7 +20,7 @@ CONFG=/etc/group
 if ! test -h /home -a -d "$(readlink -f /home)"; then
 	cat<<-EOF
 		<h4>No users folder found, create it in:</h4>
-		<form action="/cgi-bin/newuser_proc.cgi" method=post>
+		<form action="/cgi-bin/newuser_proc.cgi" method="post">
 	EOF
 	# FIXME offer possibility of creation of Public folders
 	select_part

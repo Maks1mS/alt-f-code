@@ -5,5 +5,5 @@ Depends: ncurses, ipkg
 Architecture: arm
 Priority: optional
 Section: libraries
-Source: http://tiswww.case.edu/php/chet/readline/rltop.html
+Source: https://tiswww.case.edu/php/chet/readline/rltop.html
 Maintainer: jcard

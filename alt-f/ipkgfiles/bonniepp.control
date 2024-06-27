@@ -5,5 +5,5 @@ Depends: ipkg
 Architecture: arm
 Priority: optional
 Section: fstools
-Source: http://www.coker.com.au/bonnie++
+Source: https://www.coker.com.au/bonnie++
 Maintainer: jcard

@@ -1,4 +1,4 @@
-config BR2_PACKAGE_SAMBA_SMALL
+config BR2_PACKAGE_SAMBA_SMALL_OLD
 	bool "samba-small"
 	depends on ! BR2_PACKAGE_SAMBA
 	select BR2_PACKAGE_LIBICONV
@@ -9,8 +9,8 @@ config BR2_PACKAGE_SAMBA_SMALL
 
 	  http://www.samba.org/
 
-config BR2_PACKAGE_SAMBA_SMALL_OPTIM
+config BR2_PACKAGE_SAMBA_SMALL_OPTIM_OLD
 	string "samba optim"
-	depends on BR2_PACKAGE_SAMBA_SMALL
+	depends on BR2_PACKAGE_SAMBA_SMALL_OLD
 	help
 	  Compile optimization options (-Os, -O2)

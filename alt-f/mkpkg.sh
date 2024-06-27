@@ -120,6 +120,18 @@ case "$1" in
 		exit $?
 		;;
 
+	-ll)
+		if test $# != 2; then
+			usage
+		elif ! test -f $IPKGDIR/$2.lst; then
+			echo "No such package" >&2 
+			exit 1
+		fi
+		cd $ROOTFSDIR
+		xargs --arg-file=$IPKGDIR/$2.lst ls -l
+		exit $?
+		;;
+
 	-set)
 		cd $ROOTFSDIR
 		if test -f $TFILES; then
@@ -331,8 +343,6 @@ case "$1" in
 		;;
 esac
 
-ARCH=arm
-
 pkg=$1
 PKG=$(echo $pkg | tr '[:lower:]-' '[:upper:]_')
 
@@ -401,7 +411,7 @@ fi
 if ! test -f $IPKGDIR/$pkg.control; then # first time build
 
 	# create minimum control file. User must edit it
-	# and do a new "./mkpkg <package>
+	# and afterwards do a new "./mkpkg <package>
 	# the "Depends" entry is just a helper, it has to be checked
 	# and corrected
 
@@ -429,6 +439,7 @@ if ! test -f $IPKGDIR/$pkg.control; then # first time build
 				printf "Depends: %s\n", deps;
 			printf "Architecture: arm\n";
 			printf "Priority: optional\n";
+			printf "Essential: no\n";
 			printf "Section: admin\n";
 			printf "Source: http://code.google.com/p/alt-f/\n";
 			printf "Maintainer: jcard\n";
@@ -495,7 +506,10 @@ if test $? = 1; then
 fi
 cd "$CDIR"
 
+size=$(du -ksc tmp | tail -1 | cut -f1)
 rm -f $IPKGDIR/$pkg.lst-noc
+
+ARCH=$(awk '/^Architecture:/{print $2}' $IPKGDIR/$pkg.control)
 
 for i in control conffiles preinst postinst prerm postrm; do
 	if test -f $IPKGDIR/$pkg.$i; then
@@ -505,6 +519,9 @@ for i in control conffiles preinst postinst prerm postrm; do
 		fi
 	fi
 done
+
+sed -i '/^Installed-Size:/d' tmp/CONTROL/control
+echo "Installed-Size: $size" >> tmp/CONTROL/control
 
 ipkg-build -o root -g root tmp
 

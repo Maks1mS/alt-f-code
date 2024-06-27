@@ -8,6 +8,8 @@
 LSOF_VERSION:=4.81
 LSOF_SOURCE:=lsof_$(LSOF_VERSION).tar.gz
 LSOF_SITE:=ftp://ftp.fu-berlin.de/pub/unix/tools/lsof/OLD/
+# since 4.93 https://github.com/lsof-org/lsof/releases/download/4.99.0/lsof-4.99.0.tar.gz
+
 LSOF_CAT:=$(ZCAT)
 LSOF_DIR:=$(BUILD_DIR)/lsof_$(LSOF_VERSION)
 LSOF_BINARY:=lsof

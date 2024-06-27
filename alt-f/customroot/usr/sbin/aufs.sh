@@ -1,13 +1,14 @@
 #!/bin/sh
 
 usage() {
-	echo "Usage: Alt-F.sh	-m (mount the Alt-F union branch) |
+	echo "Usage: Alt-F.sh	
+		-i <mountpoint> (install in mountpoint) |
+		-m (mount the Alt-F union branch) |
 		-u (umount the Alt-F union branch) |
+		-s (status) |
 		-n (remount with notify) |
 		-r (remount with reval) |
-		-l (list branches) |
-		-i <mountpoint> (install in mountpoint)
-		-s (status)"
+		-l (list branches)"
 	exit 1
 }
 
@@ -31,16 +32,10 @@ OR ANY OF ITS SUB-DIRECTORIES, OR THE SYSTEM MIGHT HANG!" > $mp/Alt-F/README.txt
 	rm -f /Alt-F
 	ln -s $mp/Alt-F /Alt-F
 	
-	#mkdir -p /Alt-F/var/lib /Alt-F/var/spool
-	mkdir -p /Alt-F/var/lib
+	mkdir -p /Alt-F/var/lib /Alt-F/etc/init.d
 	for i in nfs misc; do
 		cp -a /var/lib/$i /Alt-F/var/lib 2> /dev/null 
 	done
-	#for i in atjobs atspool cron lpd samba; do
-	#	if test -d /var/spool/$i; then
-	#		cp -a /var/spool/$i /Alt-F/var/spool
-	#	fi
-	#done
 	
 	loadsave_settings -ta
 	mount -t aufs -o remount,prepend:$mp/Alt-F=rw /
@@ -99,7 +94,7 @@ check() {
 # "rcall start" is being executed. A "can't stat <file>: No such file or directory" appears.
 #
 # affected Alt-F directories on the base firmware:
-# /var/lib/misc (rcurandom) /var/lib/nfs (rcnfs)
+# /var/lib/nfs (rcnfs)
 # /var/spool/atjobs /var/spool/atspool (rcat)
 # /var/spool/cron (rccron)
 # /var/spool/lpd /var/spool/samba
@@ -127,6 +122,23 @@ cleanlock() {
 }
 
 case $1 in
+	-i)
+		support
+
+		if isaufs Alt-F; then
+			echo "/Alt-F already exists."
+			exit 1
+
+		elif test $# != 2; then
+			echo "You must supply a mountpoint."
+			exit 1
+
+		else
+			install $2
+			exit $?
+		fi
+		;;
+
 	-m)
 		check
 		if isaufs $mp; then
@@ -137,21 +149,12 @@ case $1 in
 		dolock
 		trap cleanlock exit 
 
-		#mkdir -p /Alt-F/var/lib /Alt-F/var/spool
-		mkdir -p /Alt-F/var/lib 
-		#for i in nfs misc; do
-		#	cp -a /var/lib/$i /Alt-F/var/lib 
-		#done
-		cp -a /var/lib/misc /Alt-F/var/lib 
+		mkdir -p /Alt-F/var/lib /Alt-F/etc/init.d
+
+		#cp -a /var/lib/misc /Alt-F/var/lib 
 		if ! grep -q 'DELAY_NFS=y' /etc/misc.conf; then
 			cp -a /var/lib/nfs /Alt-F/var/lib 2> /dev/null
 		fi
-
-		#for i in atjobs atspool cron lpd samba; do
-		#	if test -d /var/spool/$i; then
-		#		cp -a /var/spool/$i /Alt-F/var/spool
-		#	fi
-		#done
 
 		loadsave_settings -ta
 		mount -t aufs -o remount,prepend:${mp}=rw /
@@ -175,34 +178,41 @@ case $1 in
 		loadsave_settings -fa
 		#mkdir -p /tmp/lib /tmp/spool
 		mkdir -p /tmp/lib
-		for i in nfs misc; do
+		for i in nfs; do
 			cp -a /Alt-F/var/lib/$i /tmp/lib/ 2> /dev/null
 		done
-		#for i in atjobs atspool cron lpd samba; do
-		#	if test -d /Alt-F/var/spool/$i; then
-		#		cp -a /Alt-F/var/spool/$i /tmp/spool/
-		#	fi
-		#done
+
 		ln -sf /tmp/lib /var/lib
-		#ln -sf /tmp/spool /var/spool
+		;;
+
+	-s)
+		check
+		if ! isaufs $mp; then
+			echo "$mp is not an aufs branch."
+			exit 1
+		fi
+		echo "OK"
+		exit 0
 		;;
 
 	-n)
-		check
-		if ! isaufs $mp; then
-			echo "$mp is not a aufs branch."
-			exit 1
-		fi
+# 		check
+# 		if ! isaufs $mp; then
+# 			echo "$mp is not a aufs branch."
+# 			exit 1
+# 		fi
+		support
 		mount -t aufs -o remount,udba=notify /
 		exit $?
 		;;
 
 	-r)
-		check
-		if ! isaufs $mp; then
-			echo "$mp is not a aufs branch."
-			exit 1
-		fi
+# 		check
+# 		if ! isaufs $mp; then
+# 			echo "$mp is not a aufs branch."
+# 			exit 1
+# 		fi
+		support
 		mount -t aufs -o remount,udba=reval /
 		exit $?
 		;;
@@ -210,33 +220,6 @@ case $1 in
 	-l)
 		mount -t aufs
 		cat /sys/fs/aufs/*/br?
-		;;
-
-	-s)
-		check
-		if ! isaufs $mp; then
-			echo "$mp is not a aufs branch."
-			exit 1
-		fi
-		echo "OK"
-		exit 0
-		;;
-
-	-i)
-		support
-
-		if isaufs Alt-F; then
-			echo "/Alt-F already exists."
-			exit 1
-
-		elif test $# != 2; then
-			echo "You must supply a mountpoint."
-			exit 1
-
-		else
-			install $2
-			exit $?
-		fi
 		;;
 
 	*)

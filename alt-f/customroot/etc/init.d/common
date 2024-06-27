@@ -1,5 +1,16 @@
 #set -x
 
+omsg() {
+	if test $1 = 0; then
+		echo "OK."
+	elif test -n "$2"; then
+		echo -e "Fail: $2"
+	else
+		echo "Fail."
+	fi
+	return $1	
+}
+
 # Add "enable" and "disable" options for all scripts.
 # Notice that scripts which set 'umask 077' and are all or group executable
 # can't be boot disabled by the webUI.
@@ -25,6 +36,17 @@ Use menu Packages->Alt-F to install Alt-F packages folder if you have not yet do
 	fi
 fi
 
+if test "$1" = "init"; then
+	if a=$(type sinit) && test "$a" = "sinit is a shell function"; then
+		echo -n "Initializing $(basename $0): "
+		sinit
+		omsg $?
+	else
+		omsg 1 "no sinit() function in $(basename $0)"
+	fi
+	exit
+fi
+
 # for process match, some processes need -n, the default, others -x
 if test -z "$RC_START_STOP"; then
 	RC_START_STOP=-n
@@ -43,21 +65,78 @@ AVAHI_SRV_DIR=/etc/avahi/services
 
 # $1-add/remove $2-service name
 avahi() {
-	if ! test -d $AVAHI_SRV_DIR; then return 0; fi
+	if test -z "$(ls -A $AVAHI_SRV_DIR 2> /dev/null)"; then return 0; fi
  
 	stype=$(sed -n "s|.*<type>\(.*$2.*\)</type>|\1|p" $AVAHI_SRV_DIR/$2.service* 2> /dev/null)
 	
-	for i in $(grep -l "<type>$stype</type>" $AVAHI_SRV_DIR/*.service*); do
+	for i in $(grep -l "<type>$stype</type>" $AVAHI_SRV_DIR/*.service* 2> /dev/null); do
 		sext=${i##*.}
 		sname=$(basename $i)
 		sname=${sname%%.*}
 		
 		if test "$1" = "add" -a "$sext" = "service-"; then
-				mv $AVAHI_SRV_DIR/$sname.service- $AVAHI_SRV_DIR/$sname.service
+			mv $AVAHI_SRV_DIR/$sname.service- $AVAHI_SRV_DIR/$sname.service
 		elif test "$1" = "remove" -a "$sext" = "service"; then
-				mv $AVAHI_SRV_DIR/$sname.service $AVAHI_SRV_DIR/$sname.service-
+			mv $AVAHI_SRV_DIR/$sname.service $AVAHI_SRV_DIR/$sname.service-
 		fi
 	done
+}
+
+CRONF=/var/spool/cron/crontabs/root
+
+# $1-add/remove/status [$2-"cron specs"] $3-"CMD args" 
+cron() {
+	if test $# = 3; then cmd="$3"; else cmd="$2"; fi
+	
+	if test "$1" = "add"; then
+		TF=$(mktemp -t)
+		crontab -l > $TF 2> /dev/null
+		sed -i "\|$cmd.*#!# Alt-F cron$|d" $TF
+		if test $# = 3; then
+			tspec="$2"
+		else # once a week
+			dt=$RANDOM
+			min=$((dt % 60))
+			hour=$((dt % 24))
+			wday=$((dt % 7))
+			tspec="$min $hour * * $wday"		
+		fi
+		
+		echo "$tspec $cmd #!# Alt-F cron" >> $TF
+		touch -r $CRONF $TF
+		crontab $TF 2> /dev/null
+		touch -r $TF $CRONF
+		rm $TF
+		if ! rccron status >& /dev/null; then
+			rccron start # required to handle crontabs
+		fi
+	
+	elif test "$1" = "remove"; then
+		TF=$(mktemp -t)
+		crontab -l > $TF 2> /dev/null
+		sed -i "\|$2.*#!# Alt-F cron$|d" $TF
+		touch -r $CRONF $TF
+		crontab $TF 2> /dev/null
+		touch -r $TF $CRONF
+		rm $TF
+		if ! test -s $CRONF; then
+			rccron stop # no crontab, cron not required
+		fi
+
+		
+	elif test "$1" = "status"; then
+		if ! rccron status >& /dev/null; then
+			echo "$NAME stopped"
+			return 1
+		elif crontab -l 2>/dev/null | grep -q "$2.*#!# Alt-F cron$"; then
+			rccron start >& /dev/null # required to handle the crontab
+			echo -e "$DESC\n$NAME running"
+			return 0
+		else
+			echo -e "$DESC\n$NAME stopped"
+			return 1
+		fi
+	fi
 }
 
 INETD_CONF=/etc/inetd.conf
@@ -98,7 +177,7 @@ requiredby() {
 			exit 0 # don't stop services that marked themself as 'required'
 		fi
 		if rc$dep status >& /dev/null; then
-			echo \'$srv\' can\'t be stopped, as it is needed by \'$dep\' which is running.
+			echo \'$srv\' can\'t be stopped, it is needed by a running \'$dep\'.
 			exit 1
 		fi
 	done
@@ -136,10 +215,10 @@ status() {
 	fi
 
 	if start-stop-daemon -K -t -q $RC_START_STOP $STOP_ARGS; then
-		echo "$1 running"
+		echo -e "$DESC\n$1 running"
 		return 0
 	else
-		echo "$1 stopped"
+		echo -e "$DESC\n$1 stopped"
 		return 1
 	fi
 }
@@ -154,31 +233,33 @@ dmstatus() {
 		return 1
 	else
 		for i in $dmout; do
-			if test "$(dmsetup info $i | awk '/State/{print $2}')" = "ACTIVE"; then
+			if test "$(dmsetup info $i 2> /dev/null | awk '/State/{print $2}')" = "ACTIVE"; then
 				return 0
 			fi
 		done
 	fi
 }
 
-omsg() {
-	if test $1 = 0; then
-		echo "OK."
-	elif test -n "$2"; then
-		echo -e "Fail: $2"
-	else
-		echo "Fail."
-	fi
-	return $1	
-}
+#omsg() {
+#	if test $1 = 0; then
+#		echo "OK."
+#	elif test -n "$2"; then
+#		echo -e "Fail: $2"
+#	else
+#		echo "Fail."
+#	fi
+#	return $1	
+#}
 
 # some services need to create its own user/group
 check_user() {
 	if test -n "$RC_USER" -a -n "$RC_USERN" -a -n "$RC_GROUP" -a -n "$RC_GROUPN" -a -n "$RC_DESC"; then
 		srva=$(basename $0); srv=${srva:3}
 		user_home=/var/lib/$RC_USER
-		if ! id $RC_USER >& /dev/null; then
+		if ! grep -q ^$RC_GROUP:x:$RC_GROUPN: /etc/group; then
 			addgroup -S -g $RC_GROUPN $RC_GROUP >& /dev/null
+		fi
+		if ! id $RC_USER >& /dev/null; then
 			adduser -S -g "$RC_DESC" -G $RC_GROUP -u $RC_USERN -h $user_home $RC_USER >& /dev/null
 		fi
 		if ! test -d $user_home; then
@@ -207,13 +288,18 @@ start() {
 		fi
 	fi
 
-	echo -n "Starting $(basename $1): "
-	if test -n "$RC_START_CMD"; then
-		$RC_START_CMD
-	else
-		start-stop-daemon -S -q -o $RC_START_BG $ARGS_PID -x $*
+	exe=$(basename $1)
+	echo -n "Starting $exe: "
+	which $exe >& /dev/null; st=$?
+	if test $st = 0; then
+		if test -n "$RC_START_CMD"; then
+			$RC_START_CMD
+		else
+			start-stop-daemon -S -q -o $RC_START_BG $ARGS_PID -x $*
+		fi
+		st=$?
 	fi
-	omsg $?
+	omsg $st
 }
 
 stop() {
@@ -263,7 +349,7 @@ stop() {
 
 restart() {
 	echo "Restarting $(basename $1): "
-	sh $0 stop
+	if ! sh $0 stop; then exit 1; fi
 
 	STOP_ARGS="$1"
 	if test -n "$RC_PIDFILE"; then
@@ -288,6 +374,6 @@ reload() {
 }
 
 usage() {
-	echo "Usage: $1 {$2}"
+	echo -e "$DESC\nUsage: $1 {$2}"
 	exit 1
 }

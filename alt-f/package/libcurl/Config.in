@@ -1,5 +1,6 @@
 config BR2_PACKAGE_LIBCURL
 	bool "libcurl"
+	select BR2_PACKAGE_OPENSSL
 	help
 	  cURL is a tool for getting files from FTP, HTTP, Gopher, Telnet,
 	  and Dict servers, using any of the supported protocols.

@@ -7,4 +7,3 @@ Priority: required
 Section: libraries
 Source: https://ftp.openbsd.org/pub/OpenBSD/distfiles
 Maintainer: jcard
-Essential: yes

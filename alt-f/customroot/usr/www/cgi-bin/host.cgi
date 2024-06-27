@@ -51,18 +51,19 @@ if ! hostname=$(hostname -s 2> /dev/null); then hostname=$(cat /tmp/board); fi
 if ! domain=$(hostname -d 2> /dev/null); then domain="localnet"; fi
 gateway=$(route -n | awk '$1 == "0.0.0.0" { print $2 }')
 
-FLG_MSG="#!in use by dnsmasq, don't change"
+FLG_MSG="#!# in use by dnsmasq, don't change"
 if grep -q "$FLG_MSG" $RESOLV 2> /dev/null; then
-	stk="#!nameserver"; dnsmasq_flg=1
-else
-	stk="nameserver"
+	dnsmasq_flg=1
 fi
 
-ns2=""
+#ns1=""; ns2=""; ns3=""
 if test -e $RESOLV; then
-	eval $(awk 'BEGIN{i=1} /^'$stk'/{print "ns" i "=" $2; i++}' $RESOLV)
+	eval $(awk 'BEGIN{i=1} /^nameserver/{
+		if ($2 == "127.0.0.1") continue
+		printf("ns%d=%s\n", i, $2); i++}' $RESOLV)
 fi
-if test -z "$ns1"; then ns1=$gateway; fi
+#if test "$ns1" = "127.0.0.1"; then ns1="$ns2"; ns2="$ns3"; fi
+if test -z "$ns1" -a -z "$ns2"; then ns1=$gateway; fi
 
 cat<<-EOF
 	<script type="text/javascript">

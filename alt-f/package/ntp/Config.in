@@ -12,3 +12,9 @@ config BR2_PACKAGE_NTP_SNTP
 	depends on BR2_PACKAGE_NTP
 	help
 	  Simple network time protocol program
+
+config BR2_PACKAGE_NTP_OPTIM
+	string "ntp optim"
+	depends on BR2_PACKAGE_NTP
+	help
+	  Compile optimization options (-Os, -O2)

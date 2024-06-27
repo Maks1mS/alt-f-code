@@ -27,8 +27,11 @@ mktt usb_swap_tt "Swapping on USB flash pens is disabled by default, as it might
 mktt swappiness_tt "Swappiness specifies how aggressively swap is used,<br>
 with 0 almost disabling it and 100 actively using it."
 
-mktt recreate_swap_tt "Creates and activates swap on all partitions of type swap.<br>
+mktt recreate_swapn_tt "Creates and activates swap on all partitions of type swap.<br>
 RAID1 based swap will be removed."
+
+mktt recreate_swapr_tt "Creates and activates RAID1 swap on all partitions of type swap.<br>
+Partition based swap will be removed."
 
 has_disks
 
@@ -75,6 +78,7 @@ for disk in $disks; do
 	disk_details $dsk
 
 	swap_dev=""; swap_pri=""; swap_dis=""; swap_none=""; swap_low=""; swap_med=""; swap_high=""
+	# search for active swap dev
 	eval $(awk '/\/dev\/'$dsk'/{printf "swap_dev=%s swap_pri=%d\n", substr($1,6), $5}' /proc/swaps)
 	case $swap_pri in
 		1) swap_low="selected" ;;
@@ -82,11 +86,11 @@ for disk in $disks; do
 		3) swap_high="selected" ;;
 		*) swap_none="selected" ;;
 	esac
-	if test -z $swap_dev; then
+	if test -z $swap_dev; then # no active swapon dev, see if available
 		swap_dev=$(blkid -t TYPE=swap | awk '/\/dev\/'$dsk'/{print substr($1,6,4)}')
-		if test -z $swap_dev; then
+		if test -z $swap_dev; then # mkswap never run on dev? try its partition type
 			swap_dev=$(sgdisk -p /dev/$dsk 2>/dev/null | awk '/swap/{printf "'$dsk'%d",$1}')
-			if test -z $swap_dev; then swap_dis="disabled"; fi
+			if test -z $swap_dev; then swap_dis="disabled"; fi # no swap partition
 		fi
 	fi
 
@@ -163,7 +167,10 @@ cat<<-EOF
 	<legend>Swap</legend>
 	<table>
 	<tr><td>Swapping on USB devices:</td><td><input style="width:100%" type="submit" name=usb_swap value="$usb_swap_val" onClick="return msubmit('usb_swap_act')" $(ttip usb_swap_tt)></td></tr>
-	<tr><td>Recreate swap on all devices:</td><td><input style="width:100%" type="submit" name=recreate_swap value=Recreate onClick="return msubmit('recreate_swap_act')" $(ttip recreate_swap_tt)></td></tr>
+	<tr><td>Recreate swap on all devices:</td>
+	<td><input style="width:100%" type="submit" name=recreate_swap value=RecreateNormal onClick="return msubmit('recreate_swapn_act')" $(ttip recreate_swapn_tt)></td>
+	<td><input style="width:100%" type="submit" name=recreate_swap value=RecreateRAID onClick="return msubmit('recreate_swapr_act')" $(ttip recreate_swapr_tt)></td>
+	</tr>
 	<tr><td>Swap aggressiveness:</td><td><input  style="width:100%" type="text" size=4 name=swappiness value=$(cat /proc/sys/vm/swappiness) onChange="return msubmit('swappiness_act')" $(ttip swappiness_tt)></td></tr>
 	</table>
 	</fieldset>

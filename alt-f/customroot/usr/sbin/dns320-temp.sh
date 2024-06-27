@@ -38,6 +38,8 @@ outf=/tmp/sys/temp1_input
 # sysctrl is asynchronously reading the out file, set a lock
 lockdir="/var/lock/temp-lock"
 
+SERRORL=/var/log/systemerror.log
+
 write_temp() {
 	i=100
 	while ! mkdir $lockdir >& /dev/null; do
@@ -52,7 +54,7 @@ write_temp() {
 					logger -st dns320-temp "stale $lockdir"
 				else
 					imsg="Can't get lock, \"$lockdir\" exists, exiting."
-					echo "<li><pre>dns320-temp: $imsg</pre>" >> /var/log/systemerror.log
+					echo "<li><pre>dns320-temp: $imsg</pre>" >> $SERRORL
 					logger -st dns320-temp "$imsg"
 					exit 1
 				fi

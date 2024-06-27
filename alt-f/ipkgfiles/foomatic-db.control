@@ -5,5 +5,5 @@ Version: 4.0-4
 Architecture: arm
 Priority: optional
 Section: printing
-Source: http://www.openprinting.org/download/foomatic/
+Source: https://www.openprinting.org/download/foomatic/
 Maintainer: jcard

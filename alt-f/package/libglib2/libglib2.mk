@@ -4,19 +4,38 @@
 #
 #############################################################
 
-LIBGLIB2_MAJOR = 2.20
-LIBGLIB2_VERSION = 2.20.4
-LIBGLIB2_SOURCE = glib-$(LIBGLIB2_VERSION).tar.bz2
-LIBGLIB2_SITE = http://ftp.gtk.org/pub/glib/$(LIBGLIB2_MAJOR)
+# LIBGLIB2_MAJOR = 2.20
+# LIBGLIB2_VERSION = 2.20.5  OK
+# LIBGLIB2_SOURCE = glib-$(LIBGLIB2_VERSION).tar.bz2
+# LIBGLIB2_SITE = https://download.gnome.org/sources/glib/$(LIBGLIB2_MAJOR)
+
+# LIBGLIB2_MAJOR = 2.25
+# LIBGLIB2_VERSION = $(LIBGLIB2_MAJOR).9 BAD -- but include sys/sysmacros.h
+# LIBGLIB2_SOURCE = glib-$(LIBGLIB2_VERSION).tar.bz2
+# LIBGLIB2_SITE = https://download.gnome.org/sources/glib/$(LIBGLIB2_MAJOR)
+
+# minimum for cups-filters, OK if include sys/sysmacros.h in gio/gdbusmessage.c
+# and disable tests in gio/Makefile
+LIBGLIB2_MAJOR = 2.30
+LIBGLIB2_VERSION = 2.30.3
+LIBGLIB2_SOURCE = glib-$(LIBGLIB2_VERSION).tar.xz
+LIBGLIB2_SITE = https://download.gnome.org/sources/glib/$(LIBGLIB2_MAJOR)
+
+# LIBGLIB2_MAJOR = 2.34
+# LIBGLIB2_VERSION = 2.34.3
+# LIBGLIB2_SOURCE = glib-$(LIBGLIB2_VERSION).tar.xz
+# LIBGLIB2_SITE = https://download.gnome.org/sources/glib/$(LIBGLIB2_MAJOR)
 
 LIBGLIB2_AUTORECONF = NO
 LIBGLIB2_LIBTOOL_PATCH = NO
+
 LIBGLIB2_INSTALL_STAGING = YES
 LIBGLIB2_INSTALL_TARGET = YES
 
 LIBGLIB2_INSTALL_STAGING_OPT = DESTDIR=$(STAGING_DIR) LDFLAGS=-L$(STAGING_DIR)/usr/lib install
 
 LIBGLIB2_CONF_ENV =	\
+		ac_cv_func_qsort_r=no glib_cv_have_qsort_r=no \
 		ac_cv_func_posix_getpwuid_r=yes glib_cv_stack_grows=no \
 		glib_cv_uscore=no ac_cv_func_strtod=yes \
 		ac_fsusage_space=yes fu_cv_sys_stat_statfs2_bsize=yes \
@@ -49,10 +68,13 @@ LIBGLIB2_CONF_ENV =	\
 		ac_cv_func_posix_getgrgid_r=no \
 		gt_cv_c_wchar_t=$(if $(BR2_USE_WCHAR),yes,no)
 
-LIBGLIB2_CONF_OPT = --enable-shared -enable-static
+LIBGLIB2_CONF_OPT = --enable-shared -enable-static \
+	--with-pcre=system --with-libiconv=native --enable-gtk-doc-html=no
+
+
 LIBGLIB2_HOST_CONF_OPT = --enable-shared -disable-static --enable-debug=no
 
-LIBGLIB2_DEPENDENCIES = uclibc gettext libintl host-pkgconfig libglib2-host
+LIBGLIB2_DEPENDENCIES = uclibc pcre gettext libintl libffi zlib libiconv host-pkgconfig libglib2-host
 LIBGLIB2_HOST_DEPENDENCIES = host-pkgconfig
 
 ifneq ($(BR2_ENABLE_LOCALE),y)
@@ -65,14 +87,29 @@ LIBGLIB2_DEPENDENCIES+=libiconv
 endif
 
 $(eval $(call AUTOTARGETS,package,libglib2))
-
 $(eval $(call AUTOTARGETS_HOST,package,libglib2))
 
+# "patches" for 2.30.3.
+# Notice that AUTOTARGETS_HOST don't have patches applied by default
+$(LIBGLIB2_HOST_HOOK_POST_EXTRACT):
+	#NAMEVER=$($(PKG)_NAME)-$($(PKG)_VERSION)
+	NAMEVER=$($(PKG)_NAME)-$($(PKG)_VERSION) && toolchain/patch-kernel.sh $(@D) $($(PKG)_DIR_PREFIX)/$($(PKG)_NAME) $(NAMEVER)\*.patch $(NAMEVER)\*.patch.$(ARCH)
+	touch $@
+	
+$(LIBGLIB2_HOST_HOOK_POST_CONFIGURE) $(LIBGLIB2_HOOK_POST_CONFIGURE):
+	sed -i '/\<stat.h\>/a #include \<sys/sysmacros.h\>' $(@D)/gio/gdbusmessage.c
+	sed -i '\|SUBDIRS =|{n;s/tests//}' $(@D)/gio/Makefile.in $(@D)/gio/Makefile
+	touch $@
+
 $(LIBGLIB2_HOOK_POST_INSTALL):
+	mv $(TARGET_DIR)/usr/bin/gdbus-codegen $(STAGING_DIR)/usr/bin/gdbus-codegen
 	rm -rf $(TARGET_DIR)/usr/share/gtk-doc \
 		$(TARGET_DIR)/usr/share/aclocal/ \
 		$(TARGET_DIR)/usr/lib/glib-2.0 \
-		$(TARGET_DIR)/usr/share/glib-2.0
+		$(TARGET_DIR)/usr/lib/gdbus-2.0 \
+		$(TARGET_DIR)/usr/share/glib-2.0 \
+		$(TARGET_DIR)/etc/bash_completion.d \
+		$(TARGET_DIR)/usr/share/gdb
 		# PKG_CONFIG_SYSROOT_DIR is defined by build root, .pc files don't need patch, only <pkg>-config
 		#for i in glib-2.0.pc gobject-2.0.pc gmodule-2.0.pc gio-2.0.pc gthread-2.0.pc; do \
 		#$(SED) "s|^prefix=.*|prefix=\'$(STAGING_DIR)/usr\'|g" \

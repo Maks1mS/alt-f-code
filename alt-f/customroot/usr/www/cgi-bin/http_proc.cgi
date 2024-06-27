@@ -13,10 +13,23 @@ read_args
 HTTPD_CONF=/etc/httpd.conf
 INETD_CONF=/etc/inetd.conf
 STUNNEL_CONF=/etc/stunnel/stunnel.conf
+MISC_CONF=/etc/misc.conf
+HTTPD_LOGF=/var/log/httpd.log
 
-hostip=$(ifconfig eth0 | awk '/inet addr/ { print substr($2, 6) }')
+. $MISC_CONF
+
+hostip=$(hostname -i)
 netmask=$(ifconfig eth0 | awk '/inet addr/ { print substr($4, 6) }')
 eval $(ipcalc -n $hostip $netmask) # evaluate NETWORK
+
+httpd_log=false
+if test "$log_en" = "yes"; then
+	httpd_log=true
+	touch $HTTPD_LOGF
+	chmod go-r $HTTPD_LOGF
+fi
+sed -i '/^HTTPD_LOG=/d' $MISC_CONF
+echo HTTPD_LOG=$httpd_log >> $MISC_CONF
 
 TF=$(mktemp)
 
@@ -45,7 +58,6 @@ cat<<EOF > $HTTPD_CONF
 A:127.0.0.1	#!# Allow local loopback connections
 D:*	#!# Deny from other IP connections
 A:$NETWORK/$netmask #!# Allow local net
-#port=$port	#!# keep commented!
 EOF
 
 cat $TF >> $HTTPD_CONF
@@ -60,9 +72,9 @@ host=${HTTP_HOST%:*}
 proto=${HTTP_REFERER%://*}
 
 if test "$proto" = "http"; then
-	jsport="$port"
+	jsport="$http_port"
 else
-	jsport="$sport"
+	jsport="$https_port"
 fi
 
 html_header
@@ -109,29 +121,31 @@ if false; then
 fi
 
 # port change for http
-if test "$port" != "$oport"; then
+if test "$http_port" != "$oport"; then
 	port_ch="y"
-	case $port in
+	case $http_port in
 		8080) sed -i 's/http[\t ]/http_alt\t/' $INETD_CONF ;;
 		80) sed -i 's/http_alt/http/' $INETD_CONF ;;
 	esac
-	sed -i '/^#port=.*/d' $HTTPD_CONF
-	echo "#port=$port #!# keep commented!" >> $HTTPD_CONF
-	sed -i 's/^connect.*=.*:'$oport'/connect = 127.0.0.1:'$port'/' $STUNNEL_CONF
+	#sed -i '/^#port=.*/d' $HTTPD_CONF
+	#echo "#port=$http_port #!# keep commented!" >> $HTTPD_CONF
+	sed -i '/^HTTPD_PORT=/d' $MISC_CONF
+	echo "HTTPD_PORT=$http_port" >> $MISC_CONF
+	sed -i 's/^connect.*=.*:'$oport'/connect = 127.0.0.1:'$http_port'/' $STUNNEL_CONF
 fi
 
 # port change for https
-if test "$sport" != "$osport"; then
+if test "$https_port" != "$osport"; then
 	sport_ch="y"
-	case $sport in
+	case $https_port in
 		8443) sed -i 's/https[\t ]/https_alt\t/' $INETD_CONF ;;
 		443) sed -i 's/https_alt/https/' $INETD_CONF ;;
 	esac
-	sed -i 's/^accept.*=.*443/accept = '$sport'/' $STUNNEL_CONF
+	sed -i 's/^accept.*=.*443/accept = '$https_port'/' $STUNNEL_CONF
 fi
 
 srv=http
-if test "$port" = "8080"; then
+if test "$http_port" = "8080"; then
 	srv=http_alt
 fi
 
@@ -147,7 +161,7 @@ elif test "$httpd" = "inetd" -a "$ohttpd" = "server"; then
 fi
 
 ssrv=https
-if test "$sport" = "8443"; then
+if test "$https_port" = "8443"; then
 	ssrv=https_alt
 fi
 
@@ -162,7 +176,7 @@ elif test "$stunnel" = "inetd" -a "$ostunnel" = "server"; then
 	rcinetd enable $ssrv swats >& /dev/null
 fi
 
-if test "$httpd" = "$ohttpd" -a "$port" != "$oport"; then
+if test "$httpd" = "$ohttpd" -a "$http_port" != "$oport"; then
 	rchttp restart >& /dev/null
 fi
 

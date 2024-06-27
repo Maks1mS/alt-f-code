@@ -4,9 +4,27 @@
 #
 #############################################################
 
-AT_VERSION:=3.1.23
+AT_VERSION:=3.2.5
 AT_SOURCE:=at_$(AT_VERSION).orig.tar.gz
 AT_SITE:=$(BR2_DEBIAN_MIRROR)/debian/pool/main/a/at
+
+AT_DEPENDENCIES = uclibc host-fakeroot msmtp
+
+AT_INSTALL_TARGET_OPT = DESTDIR=$(TARGET_DIR) install
+
+AT_CONF_OPT = --with-jobdir=/var/spool/cron/atjobs \
+	--with-atspool=/var/spool/cron/atspool \
+	--with-daemon_username=at \
+	--with-daemon_groupname=at \
+	SENDMAIL=/usr/sbin/sendmail
+
+$(eval $(call AUTOTARGETS,package,at))
+
+$(AT_HOOK_POST_INSTALL):
+	rm -rf $(TARGET_DIR)/usr/share/at $(TARGET_DIR)/tmp/cron
+	touch $@
+
+ifeq (y,n)
 
 AT_DIR:=$(BUILD_DIR)/at-$(AT_VERSION)
 AT_CAT:=$(ZCAT)
@@ -50,7 +68,7 @@ $(AT_DIR)/.configured: $(AT_DIR)/.unpacked
 	touch $@
 
 $(AT_DIR)/$(AT_BINARY): $(AT_DIR)/.configured
-	$(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(AT_DIR)
+	$(MAKE1) $(TARGET_CONFIGURE_OPTS) -C $(AT_DIR)
 	touch $@
 
 $(TARGET_DIR)/$(AT_TARGET_SCRIPT): $(AT_DIR)/$(AT_BINARY)
@@ -88,4 +106,6 @@ at-dirclean:
 #############################################################
 ifeq ($(BR2_PACKAGE_AT),y)
 TARGETS+=at
+endif
+
 endif

@@ -5,5 +5,5 @@ Description: The Free UPnP Entertainment Service
 Architecture: arm
 Priority: optional
 Section: upnp-dlna servers
-Source: http://fuppes.ulrich-voelkel.de
+Source: https://fuppes.ulrich-voelkel.de
 Maintainer: jcard

@@ -7,7 +7,7 @@ read_args
 #debug
 
 CONF_HOSTS=/etc/hosts
-CONF_MISC=/etc/misc.conf
+CONF_MOD=/etc/modules
 
 if test -n "$Submit"; then
 
@@ -20,7 +20,7 @@ if test -n "$Submit"; then
 
 	TF=$(mktemp)
 	echo "127.0.0.1	localhost" > $TF
-	if test "$MODLOAD_IPV6" = "y"; then
+	if grep -q ^ipv6 $CONF_MOD; then
 		echo "::1	localhost ipv6-localhost ipv6-loopback"  >> $TF
 	fi
 
@@ -39,7 +39,7 @@ if test -n "$Submit"; then
 
 		if ! $(checkname $nm); then
 			rm $TF
-			msg "The host name can only have letters and digits, no spaces, and must begin with a letter"
+			msg "The host name can only have letters, dashes, digits, no spaces, and must begin with a letter"
 		fi
 
 		if echo "$ip" | grep -q ':'; then
@@ -47,7 +47,7 @@ if test -n "$Submit"; then
 		elif ! $(checkip $ip); then # FIXME: make checkip() check IPv6 IPs
 			msg "The IP must be in the form x.x.x.x, where x is greater than 0 and lower then 255."
 		else
-			echo "$ip	$nm.$net	$nm" >> $TF
+			echo "$ip	$nm.$net	$nm.local	$nm" >> $TF
 		fi
 
 	done

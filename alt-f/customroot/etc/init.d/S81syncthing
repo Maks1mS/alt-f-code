@@ -43,8 +43,10 @@ if ! test -f $SYNCTHING_CONF; then
 	echo "The first Syncthing start might takes another 1 to 2 minutes."
 
 	$NAME -generate=$SYNCTHING_HOME > /dev/null
-	sed -i -e 's|<address>127.0.0.1:.*</address>|<address>0.0.0.0:8088</address>|' \
+	sed -i -e 's|<address>127.0.0.1:.*</address>|<address>0.0.0.0:8088</address>\
+        <insecureAllowFrameLoading>true</insecureAllowFrameLoading>|' \
 		-e  '/<folder/,/<\/folder/d' $SYNCTHING_CONF
+		
 	chown -R $RC_USER:$RC_GROUP $SYNCTHING_HOME
 fi
 

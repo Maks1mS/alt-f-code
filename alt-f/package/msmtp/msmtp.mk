@@ -4,6 +4,7 @@
 #
 ############################################################
 
+# up from this version openssl is not recomended, so stick
 MSMTP_VERSION = 1.6.8
 MSMTP_SITE = https://marlam.de/msmtp/releases
 MSMTP_SOURCE = msmtp-$(MSMTP_VERSION).tar.xz

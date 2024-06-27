@@ -13,7 +13,7 @@ SFDISK_VERSION:=3.0
 #SFDISK_SOURCE=sfdisk-$(SFDISK_VERSION).tar.bz2
 SFDISK_SOURCE=sfdisk.tar.bz2
 SFDISK_CAT:=$(BZCAT)
-SFDISK_SITE:=http://www.uclibc.org/
+SFDISK_SITE:=https://www.uclibc.org/
 #SFDISK_DIR=$(BUILD_DIR)/sfdisk$(SFDISK_VERSION)
 SFDISK_DIR=$(BUILD_DIR)/sfdisk
 
@@ -34,6 +34,7 @@ $(SFDISK_DIR)/.built: $(SFDISK_DIR)/.patched
 	touch $(SFDISK_DIR)/.built
 
 $(TARGET_DIR)/sbin/sfdisk: $(SFDISK_DIR)/.built
+	mkdir -p $(TARGET_DIR)/sbin
 	cp $(SFDISK_DIR)/sfdisk $(TARGET_DIR)/sbin/sfdisk
 	touch -c $(TARGET_DIR)/sbin/sfdisk
 

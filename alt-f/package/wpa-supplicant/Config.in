@@ -4,7 +4,7 @@ config BR2_PACKAGE_WPA_SUPPLICANT
 	help
 	  WPA supplicant for secure wireless networks
 
-	  http://hostap.epitest.fi/wpa_supplicant/
+	  https://w1.fi/wpa_supplicant/
 
 config BR2_PACKAGE_WPA_SUPPLICANT_EAP
 	bool "Enable WPA with EAP"

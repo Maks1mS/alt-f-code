@@ -13,7 +13,8 @@ USHARE_LIBTOOL_PATCH = NO
 
 USHARE_DEPENDENCIES = uclibc libupnp libdlna
 
-USHARE_CONF_OPT = --disable-static --cross-compile --cross-prefix=arm-linux-uclibcgnueabi- \
+USHARE_CONF_ENV = CC="$(TARGET_CC)" CFLAGS="-fgnu89-inline $(TARGET_CFLAGS)"
+USHARE_CONF_OPT = --disable-optimize --cross-compile --cross-prefix=arm-linux- \
 	--enable-dlna --with-libdlna-dir=$(STAGING_DIR)/usr/ \
 	--with-libupnp-dir=$(STAGING_DIR)/usr/
 

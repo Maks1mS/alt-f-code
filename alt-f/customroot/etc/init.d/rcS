@@ -2,20 +2,32 @@
 
 #set -x
 
+TSYSLOG=/var/log/boot.log
+SERRORL=/var/log/systemerror.log
+
+UBIROOT=/rootmnt/ubiimage
+SQROOT=/rootmnt/sqimage
+
 mount -t proc proc /proc
 mount -o remount,rw /
 mount -t sysfs sysfs /sys
 mount -t tmpfs tmpfs /tmp
+mount -t devtmpfs devtmpfs /dev 
 
-#mount -t devtmpfs devtmpfs /dev
-#mount -t tmpfs tmpfs /dev
-#mknod /dev/null c 1 3
+# overlayfs (not used) seems to need tmpfs on /dev?
+#mount -t tmpfs tmpfs /dev 
+#mknod /dev/null c 1 3  
 #mknod /dev/console c 5 1
-#mkdir /dev/pts
-/bin/mount -t devpts devpts /dev/pts
 
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts
+
+# pre-init cleanup
 rmdir /newroot/rootmnt /newroot >& /dev/null
+umount /boot >& /dev/null
+freeramdisk /dev/ram0 >& /dev/null
 
+# setup tmp dirs in /tmp
 for i in lib run log cache spool db lock; do
 	mkdir -p /tmp/$i
 	ln -sf /tmp/$i /var/$i
@@ -27,26 +39,35 @@ chmod a+wt /var/spool/lpd /var/spool/samba
 echo > /etc/bay
 echo -n > /etc/printcap
 
+touch /var/log/wtmp /var/run/utmp
+chown root:utmp /var/log/wtmp /var/run/utmp
+chmod 664 /var/log/wtmp /var/run/utmp
+
 # bootlog. syslog has not yet started, and hot.sh uses "logger",
-TSYSLOG=/var/log/boot.log
 start-stop-daemon -S -q -x syslogd -- -m 0 -D -S -O $TSYSLOG
+
+# There is a lack of entropy to generate private keys or do other SSL operations.
+# Use haveged to collect entropy. Kill it at this script end and let init respawn it.
+haveged -r0
 
 # what box/board?
 mkdir -p /tmp/sys
 
-if grep -q 'ARM-Versatile PB' /proc/cpuinfo; then
-	board="qemu"
-elif grep -q 'DNS-321/323' /proc/cpuinfo; then
+if grep -q 'DNS-321/323' /proc/cpuinfo; then
 	case $(sed -n 's/Revision.*:.\([[:digit:]]*\).*/\1/p' /proc/cpuinfo) in
 		0000) board="DNS-323-A1" ;;
 		0001) board="DNS-323-B1" ;;
 		0002) board="DNS-323-C1" ;;
 		0003) board="DNS-321-Ax" ;; 
 	esac
+elif grep -q 'ARM Versatile PB' /proc/device-tree/model 2> /dev/null; then
+	board="qemu"
 elif grep -q 'DNS-320L-rev-Ax' /proc/device-tree/model 2> /dev/null; then
 	board="DNS-320L-Ax"
 elif grep -q 'DNS-320-rev-Ax' /proc/device-tree/model 2> /dev/null; then
 	board="DNS-320-Ax"
+elif grep -q 'DNR-322L-rev-Ax' /proc/device-tree/model 2> /dev/null; then
+	board="DNR-322L-Ax"
 elif grep -q 'DNS-320-rev-Bx' /proc/device-tree/model 2> /dev/null; then
 	board="DNS-320-Bx"
 elif grep -q 'DNS-325-rev-Ax' /proc/device-tree/model 2> /dev/null; then
@@ -61,25 +82,23 @@ echo $board > /tmp/board
 chmod -w /tmp/board
 
 if echo $board | grep -qE "qemu"; then
-	config_mtd=/dev/mtdblock0; config_mn="31 0"
 	mkdir -p /tmp/sys/power_led
 	sed -i 's/ttyS0/ttyAMA0/g' /etc/inittab
 	kill -1 1
-elif echo $board | grep -qE "DNS-321|DNS-323"; then
-	kernel_mtd=/dev/mtd2; kernel_mn="90 4"
-	config_mtd=/dev/mtdblock0; config_mn="31 0"
 	
+elif echo $board | grep -qE "DNS-321|DNS-323"; then
+	kernel_mtd=/dev/mtd2
+
 	ln -sf "/sys/class/leds/power:blue" /tmp/sys/power_led
 	ln -sf "/sys/class/leds/left:amber" /tmp/sys/left_led
 	ln -sf "/sys/class/leds/right:amber" /tmp/sys/right_led
 
-elif echo $board | grep -qE "DNS-320|DNS-325|DNS-327L"; then
-	kernel_mtd=/dev/mtd1; kernel_mn="90 2"
-	config_mtd=/dev/mtdblock5; config_mn="31 5"
+elif echo $board | grep -qE "DNR-322L|DNS-320|DNS-325|DNS-327L"; then
+	kernel_mtd=/dev/mtd1
 
 	# Tell PMU to turn back on after a power failure
 	# From http://jamie.lentin.co.uk/devices/dlink-dns325/userland-configuration/
-	if test $board = "DNS-320-Ax" -o $board = "DNS-325-Ax"; then
+	if test $board = "DNR-322L-Ax" -o $board = "DNS-320-Ax" -o $board = "DNS-325-Ax"; then
 		echo 37 > /sys/class/gpio/export
 		echo out > /sys/class/gpio/gpio37/direction
 		echo 1 > /sys/class/gpio/gpio37/value
@@ -87,8 +106,10 @@ elif echo $board | grep -qE "DNS-320|DNS-325|DNS-327L"; then
 	fi
 
 	# MAC is stored in /dev/mtd4, configure eth0
-	if ! test -e /dev/mtd4; then mknod /dev/mtd4 c 90 8; fi
-	ifconfig eth0 hw ether $(nanddump -ql 2048 /dev/mtd4 | grep -E '..(:..){5}')
+	IFMAC=$(nanddump -ql 2048 /dev/mtd4 | grep -oE '[[:xdigit:]]{2}(:[[:xdigit:]]{2}){5}')
+	if test -n "$IFMAC"; then
+		ifconfig eth0 hw ether $IFMAC
+	fi
 
 	# get sqimage from tftp if bootargs contains tftpargs=myip:tftpip[:netmask]
 	tftpargs=$(sed -n 's/.*tftpargs=\([.:[:digit:]]*\).*/\1/p' /proc/cmdline)
@@ -97,36 +118,41 @@ elif echo $board | grep -qE "DNS-320|DNS-325|DNS-327L"; then
 		if echo $board | grep -q DNS-327L; then aboard="dns327"; fi
 
 		eval $(echo $tftpargs | awk -F: '{printf "myip=%s tftpip=%s netmsk=%s", $1, $2, $3}')
-		logger -st rcS "tftp getting sqimage from $tftpip, myip $myip"
+		logger -st rcS "tftp getting sqimage-$aboard from $tftpip, myip $myip"
 		ifconfig eth0 up $myip netmask ${netmsk:-255.255.255.0}
-		if ! tftp -g -r rootfs.arm.sqimage.xz-$aboard -l /tmp/sqimage.xz $tftpip; then
+		if ! tftp -g -r sqimage-$aboard -l /tmp/sqimage.xz $tftpip; then
 			logger -st rcS "tftp get failed"
+		else
+			logger -st rcS "loop aufs mount sqimage-$aboard"
+			chmod -w /tmp/sqimage.xz
+			mkdir -p $SQROOT
+			mount -o loop /tmp/sqimage.xz $SQROOT
+			mount -t aufs -o remount,append:${SQROOT}=rr /		
 		fi
 		ifconfig eth0 down
-	else # get squashfs image from NAND
-		# can't be run from a NAND (dns-320/325/327), in contrast to a NOR (dns-323/321)
-		# FIXME: create a 100MB ubifs on mtd3 and run the rootfs from it
-		if ! test -e /dev/mtd3; then mknod /dev/mtd3 c 90 6; fi
-		eval $(nanddump -ql 2048 /dev/mtd3 | strings) # contains sqimage_size=bytes_of_sqimage;
-		if test -n "$sqimage_size"; then
-			if test "$sqimage_size" -gt 0 -a "$sqimage_size" -lt 30000000; then
-				nanddump -qf /tmp/sqimage.xz -s 2048 -l $sqimage_size /dev/mtd3
+	fi
+	
+	if ubiattach -d 1 -p /dev/mtd3 -O 2048; then # ubi/ubifs setup
+		mkdir -p $UBIROOT
+		if mount -t ubifs -o rw /dev/ubi1_0 $UBIROOT; then
+			sync
+			if mount -t squashfs | grep -q /rootmnt/sqimage; then
+				#mount at bottom, as ubiimage might contain outdated pkgs
+				mount -t aufs -o remount,append:${UBIROOT}=ro /
+			else
+				# insert where /rootmnt/ro currently is; ro will be keept at bottom
+				ix=$(basename $(grep -l /rootmnt/ro /sys/fs/aufs/*/br?))
+				mount -t aufs -o remount,ins:${ix#br}:${UBIROOT}=ro /
 			fi
+		else
+			ubidetach -p /dev/mtd3
+			logger -st rcS "UBIFS mount failed"
 		fi
+	else
+		logger -st rcS "UBI attach failed, minimum system loaded."
 	fi
 
-	# loop/aufs mount sqimage
-	if test -s /tmp/sqimage.xz; then
-		chmod -w /tmp/sqimage.xz
-		mkdir -p /rootmnt/sqimage
-		mount -o loop /tmp/sqimage.xz /rootmnt/sqimage
-		mount -t aufs -o remount,append:/rootmnt/sqimage=rr /
-	fi
-
-	# the dns320-temp.sh/dns320l-daemon needs ttyS1, not yet available
-	if ! test -e /dev/ttyS1; then mknod /dev/ttyS1 c 4 65; fi
-
-	if test $board = "DNS-320-Ax"; then
+	if test $board = "DNS-320-Ax" -o $board = "DNR-322L-Ax" ; then
 		ln -sf "/sys/class/leds/dns320:blue:power" /tmp/sys/power_led
 		ln -sf "/sys/class/leds/dns320:orange:l_hdd" /tmp/sys/left_led
 		ln -sf "/sys/class/leds/dns320:orange:r_hdd" /tmp/sys/right_led
@@ -150,8 +176,7 @@ elif echo $board | grep -qE "DNS-320|DNS-325|DNS-327L"; then
 		fi
 		ln -sf /sys/class/gpio/gpio29/value /tmp/sys/power_button
 		mkdir -p /tmp/sys/power_led
-		echo none > /tmp/sys/power_led/trigger
-		echo 1 > /tmp/sys/power_led/brightness
+
 		echo 0 > /tmp/sys/usb2_led/brightness
 		echo 0 > /tmp/sys/fan1_input
 
@@ -171,7 +196,7 @@ elif echo $board | grep -qE "DNS-320|DNS-325|DNS-327L"; then
 		ln -sf "/sys/class/leds/dns327l:amber:sata-r" /tmp/sys/right_led
 		ln -sf "/sys/class/leds/dns327l:white:usb" /tmp/sys/usb2_led
 		
-		if ! test -f /sys/class/gpio/gpio65/value; then # power button don't generate interrup!
+		if ! test -f /sys/class/gpio/gpio65/value; then # power button don't generate interrupt!
 			echo 65 > /sys/class/gpio/export
 			echo out > /sys/class/gpio/gpio65/direction # sigh...
 			echo in > /sys/class/gpio/gpio65/direction # sigh...
@@ -180,19 +205,12 @@ elif echo $board | grep -qE "DNS-320|DNS-325|DNS-327L"; then
 
 		ln -sf /sys/class/hwmon/hwmon0/temp1_input /tmp/sys/cpu_temp
 		mkdir -p /tmp/sys/power_led
-		echo none > /tmp/sys/power_led/trigger
-		echo 1 > /tmp/sys/power_led/brightness
+
 		echo 0 > /tmp/sys/usb2_led/brightness
 		echo 0 > /tmp/sys/fan1_input
 		echo 0 > /tmp/sys/temp1_input
 
 		# attach mtd5 (settings) to ubi0, for loadsave_settings
-		if ! test -e /dev/mtd5; then
-			mknod /dev/mtd5 c 90 10
-			mknod /dev/ubi_ctrl c 10 59
-			mknod /dev/ubi0 c 252 0
-			mknod /dev/ubi0_0 c 252 1
-		fi
 		ubiattach -p /dev/mtd5 -d 0
 
 		# make init launch dns320l-daemon
@@ -202,9 +220,6 @@ elif echo $board | grep -qE "DNS-320|DNS-325|DNS-327L"; then
 fi
 
 if test "$board" != "Unknown"; then
-	if ! test -e $kernel_mtd; then mknod $kernel_mtd c $kernel_mn; fi
-	if ! test -e $config_mtd; then mknod $config_mtd b $config_mn; fi
-
 	for i in fan1_input temp1_input pwm1; do
 		j=$(find /sys/class/ -follow -maxdepth 4 -name $i)
 		if test -n "$j" -a ! -f /tmp/sys/$i; then
@@ -224,7 +239,6 @@ fi
 
 # notice, settings not yet loaded, TZ set to NONE-0
 logger -st rcS "Reading RCT in UTC and setting system time and date"
-if ! test -e /dev/rtc0; then mknod /dev/rtc0 c 254 0; fi
 hwclock -su
 
 logger -st rcS "Board: $board"
@@ -238,8 +252,8 @@ if ! grep -q "nodef" /proc/cmdline; then
 	logger -st rcS "$res"
 	
 	if loadsave_settings -gb; then
-		touch /tmp/fsckboot
 		logger -st rcS "Forcing fsck at boot"
+		touch /tmp/fsckboot
 	fi
 
 	if test -s /etc/misc.conf; then
@@ -248,9 +262,9 @@ if ! grep -q "nodef" /proc/cmdline; then
 fi
 
 # rsyncd.secrets can be in sqimage
-if test -f /etc/rsyncd.secrets; then
-	chmod og-r /etc/rsyncd.secrets
-fi
+#if test -f /etc/rsyncd.secrets; then
+#	chmod og-r /etc/rsyncd.secrets
+#fi
 
 # create lock file for aufs.sh synchronization, minimizing (not solving!) hotpluging
 # interation issues with initscripts when /Alt-F is mounted
@@ -259,10 +273,29 @@ while ! mkdir $aufslock >& /dev/null; do usleep 500000; done
 
 # sequence hotplug events
 echo > /dev/mdev.seq 
+
+# "hotplug", mdev.conf calls /usr/sbin/hot.sh, 
+echo /sbin/mdev > /proc/sys/kernel/hotplug
+
 # populate /dev
 /sbin/mdev -s
-# "hotplug", mdev.conf registers /usr/sbin/hot.sh, 
-echo /sbin/mdev > /proc/sys/kernel/hotplug
+
+# stolen from https://github.com/slashbeast/mdev-like-a-boss/blob/master/mdev.init
+# mdev -s does not poke network interfaces or usb devices so we need to do it here.
+# for i in /sys/class/net/*/uevent; do printf 'add' > "$i"; done 2>/dev/null; unset i
+# for i in /sys/bus/usb/devices/*; do
+# 	case "${i##*/}" in
+# 		[0-9]*-[0-9]*)
+# 			printf 'add' > "$i/uevent"
+# 		;;
+# 	esac
+# done
+#
+# Load kernel modules, run twice.
+# find /sys -name 'modalias' -type f -exec cat '{}' + | sort -u | xargs modprobe -b -a 2>/dev/null
+# find /sys -name 'modalias' -type f -exec cat '{}' + | sort -u | xargs modprobe -b -a 2>/dev/null
+# end of stolen
+# all the above could be avoided if we just modprobe usb-storage... use /etc/modules for that instead?
 
 # set a default hostname based on box model and network MAC
 if ! test -s /etc/hostname; then
@@ -281,7 +314,7 @@ hostname -F /etc/hostname
 # 4th, try to use a dhcp server
 # 5th, find and use a non-used ip address from 192.168.1.254 to 230 range
 if grep -q "ip=" /proc/cmdline; then
-	logger -st rcS "IP from kernel cmdline, kernel brings eth0 up"
+	logger -st rcS "IP from kernel cmdline"
 	cip="kip"
 	eval $(cat /proc/cmdline)
 	ns=$(echo $ip | awk -F: '{ print $3 }')
@@ -296,7 +329,9 @@ if grep -q "ip=" /proc/cmdline; then
 	fi
 	ifconfig eth0 up
 elif test $no_defaults = "0"; then
-	logger -st rcS "IP from flash-defaults"
+	ipt=$(sed -n 's/iface.*eth0.*inet\(.*\)/\1/p' /etc/network/interfaces)
+	ips=$(sed -n 's/address\(.*\)/\1/p' /etc/network/interfaces)
+	logger -st rcS "IP from flash-defaults:$ipt $ips"
 	cip="def"
 	ifup eth0
 else
@@ -403,7 +438,14 @@ case $cip in
 		;;
 esac
 
+# load specified but not autoloading modules
+if grep -qv "# list of modules" /etc/modules; then
+	logger -st rcS "Loading kernel modules"
+	modprobe -avb $(sed 's/#.*//' /etc/modules | tr -s '\n' ' ')
+fi
+
 # configure kernel parameters
+logger -st rcS "Setting kernel parameters"
 sysctl -p
 
 # create rc* shortcuts to /etc/init.d/S??*
@@ -416,14 +458,21 @@ done
 # stop temporary syslog to /var/log/boot.log
 start-stop-daemon -K -q -n syslogd
 
-# execute rc.sys, which is saved on flash and might contain short system fixes
+# execute rc.sys, which is saved on flash and might contain small system fixes
 if test -x /etc/init.d/rc.sys; then
 	logger -st rcS "Executing rc.sys"
 	/etc/init.d/rc.sys
 fi
 
+# set time from ntp server, RTC may have drifted or its battery exhausted
+fsntp -s
+
 # Start all executable init scripts
+rcall init
 rcall start
+
+# kill early launched haveged, let init respawn it
+kill $(cat /var/run/haveged.pid)
 
 # remove aufs.sh lock
 rmdir $aufslock

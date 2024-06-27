@@ -3,54 +3,14 @@
 DESC="Backup Service"
 TYPE=sys
 NAME=backup
-#REQUIRE="cron" does not works here
+REQUIRE="cron" # actually is cron() that implements require()
 
 CONF=/etc/backup.conf
-CRONF=/var/spool/cron/crontabs/root
+CMD="/usr/bin/backup"
 
 . /etc/init.d/common
 
-istatus() {
-	if ! rccron status >& /dev/null; then
-		echo "$1 stopped"
-		return 1
-	fi
-	
-	if crontab -l 2>/dev/null | grep -q /usr/bin/backup; then
-		echo "$1 running"
-		return 0
-	else
-		echo "$1 stopped"
-		return 1
-	fi
-}
-
-# clean cron backup entries, even if cron is currently stopped
-istop() {
-	echo -n "Stopping $1: "
-	TF=$(mktemp -t)
-	crontab -l > $TF 2> /dev/null
-	sed -i '\|/usr/bin/backup|d' $TF
-	touch -r $CRONF $TF
-	crontab $TF 2> /dev/null
-	touch -r $TF $CRONF
-
-	rm $TF
-	echo "OK."
-}
-
 istart() {
-	if ! test -f $CONF; then
-		echo "$0: no configuration file, exiting"
-		return 1
-	fi
-
-	require $NAME cron
-	echo -n "Starting $1: "
-	TF=$(mktemp -t)
-	crontab -l > $TF 2> /dev/null
-	sed -i '\|/usr/bin/backup|d' $TF
-
 	IFS=";"
 	while read id type runas host mac srcpath dstpath when at log rest; do
 		if test -z "$id" -o -z "$type" -o -z "$runas" -o -z "$srcpath" \
@@ -62,21 +22,25 @@ istart() {
 		else
 			mday='*'
 		fi
-		echo "0 $at $mday * $when /usr/bin/backup $id #!# Alt-F cron" >> $TF
+		cron add "0 $at $mday * $when" "$CMD $id"
 	done < $CONF
-
-	touch -r $CRONF $TF
-	crontab $TF 2> /dev/null
-	touch -r $TF $CRONF
-	rm $TF
-
-	echo "OK."
 }
 
 case "$1" in
-	start) istart $NAME ;;
-	stop) istop $NAME;;
+	start)
+		if ! test -f $CONF; then
+			echo "$0: no configuration file, exiting"
+			return 1
+		fi
+
+		istart $NAME
+		echo "Starting $NAME: OK."
+		;;
+	stop)
+		cron remove $CMD
+		echo "Stopping $NAME: OK."
+		;;
+	status) cron status $CMD ;;
 	restart|reload) restart $NAME ;;
-	status) istatus $NAME ;;
 	*) usage $0 "start|stop|status|restart|reload" ;;
 esac

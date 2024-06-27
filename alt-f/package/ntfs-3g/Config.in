@@ -19,3 +19,8 @@ config BR2_PACKAGE_NTFS_3G_NTFSPROGS
 	help
 	  Compile also the ntfsprogs utilities programs
 
+config BR2_PACKAGE_NTFS_3G_OPTIM
+	string "ntfs-3g optim"
+	depends on BR2_PACKAGE_NTFS_3G
+	help
+	  Compile optimization options (-Os, -O2)

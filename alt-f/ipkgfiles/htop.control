@@ -5,5 +5,5 @@ Depends: ncurses, ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://htop.sourceforge.net
+Source: https://htop.sourceforge.net
 Maintainer: jcard

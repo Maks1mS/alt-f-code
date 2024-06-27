@@ -63,7 +63,7 @@ elif test -n "$Submit"; then
 			if test $fstype = "nfs"; then
 				mopts="rw,hard,intr,proto=tcp,noauto"
 			else
-				mopts="uid=root,gid=users,credentials=/etc/samba/credentials.root,rw,iocharset=utf8,nounix,noserverino,noauto"
+				mopts="rw,uid=root,gid=users,credentials=/etc/samba/credentials.root,vers=2.0,iocharset=utf8,nounix,noserverino,noauto"
 			fi
 		fi
 		rdir=$(path_escape "$(httpd -d $(eval echo \$rdir_$i))")

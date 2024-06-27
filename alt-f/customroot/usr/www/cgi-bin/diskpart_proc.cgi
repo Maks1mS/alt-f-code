@@ -53,8 +53,9 @@ reread_part() { # FIXME needed with GPT?
 	sleep 3
 
 	# somehow, in this scenario, mdev does not remove device, only creates them
-	rm -f /dev/${1}[0-9]
-	mdev -s
+	# devtmpfs, not mdev, is now in charge, don't remove
+	#rm -f /dev/${1}[0-9]
+	#mdev -s
 }
 
 #$1-dsk

@@ -4,15 +4,16 @@
 check_cookie
 write_header "Administrative HTTP/HTTPS servers Setup"
 
-CONFF=/etc/httpd.conf
+HTTPD_CONF=/etc/httpd.conf
 INETD_CONF=/etc/inetd.conf
+MISC_CONF=/etc/misc.conf
 
 mktt rem_tt "All hosts from the local network are already allowed to access <br>
 the administrative web pages.<br><br>
 Specify an external network or IP address (no validity checks done)<br>
 allowed to have http access to the administrative web pages.<br>
 Or use instead secure https, where all hosts are already allowed.<br><br>
-Even with https the Alt-F webUI might have security vulnerabilities and<br>
+Even with https the Alt-F webUI has security vulnerabilities and<br>
 it is not recommended to expose it to the internet."
 
 mktt port_tt "The default HTTP port is 80, so you can access the webUI using<br>
@@ -29,18 +30,22 @@ mktt inetd_tt "Inetd mode: runs only when necessary, slower to start, conserves 
 mktt server_tt "Server mode: always running, faster, always consuming memory<br>
 (the corresponding checkboxes in the inetd web page will be unchecked)."
 
+. $MISC_CONF
+
+if test "$HTTPD_LOG" = "true"; then
+	LOG_CHK="checked"
+fi
+
 if grep -q http_alt $INETD_CONF; then
 	ALT_PORT_CHK="checked"
 	OPORT="8080"
-	if checkport 80; then
-		port_msg="Port 80 currently in use"
+	if ! port_msg=$(checkport 80); then
 		DEF_PORT_DIS="disabled"
 	fi
 else
 	DEF_PORT_CHK="checked"
 	OPORT="80"
-	if checkport 8080; then
-		port_msg="Port 8080 currently in use"
+	if ! port_msg=$(checkport 8080); then
 		ALT_PORT_DIS="disabled"
 	fi
 fi
@@ -48,15 +53,13 @@ fi
 if grep -q https_alt $INETD_CONF; then
 	ALT_SPORT_CHK="checked"
 	OSPORT="8443"
-	if checkport 443; then
-		sport_msg="Port 443 currently in use"
+	if ! sport_msg=$(checkport 443); then
 		DEF_SPORT_DIS="disabled"
 	fi
 else
 	DEF_SPORT_CHK="checked"
 	OSPORT="443"
-	if checkport 8443; then
-		sport_msg="Port 8443 currently in use"
+	if ! sport_msg=$(checkport 8443); then
 		ALT_SPORT_DIS="disabled"
 	fi
 fi
@@ -77,11 +80,17 @@ else
 	OHTTPD="server"
 fi
 
-hostip=$(ifconfig eth0 | awk '/inet addr/ { print substr($2, 6) }')
-netmask=$(ifconfig eth0 | awk '/inet addr/ { print substr($4, 6) }')
-eval $(ipcalc -n $hostip $netmask) # evaluate NETWORK
+# is this code block needed?
+#hostip=$(hostname -i)
+#netmask=$(ifconfig eth0 | awk '/inet addr/ { print substr($4, 6) }')
+#eval $(ipcalc -n $hostip $netmask) # evaluate NETWORK
 
 cat<<-EOF
+	<script  type="text/javascript">
+		function sync(obj, id) {
+			document.getElementById(id).checked = obj.checked
+		}
+	</script>
 	<h4 class="warn">After changing the current ports or service mode and Submiting,<br>
 	the connection might become broken and you might have to<br>
 	reload the page or edit the browser URL accordingly.</h4>
@@ -91,7 +100,7 @@ cat<<-EOF
 EOF
 
 cnt=1
-for i in $(sed -n "s|A:\(.*\)#!# Allow remote.*$|\1|p" $CONFF); do
+for i in $(sed -n "s|A:\(.*\)#!# Allow remote.*$|\1|p" $HTTPD_CONF); do
 	dis=""
 	if test ${i:0:1} = "#"; then
 		dis=checked
@@ -118,10 +127,11 @@ cat<<-EOF
 	<table>
 	<tr><td></td></tr>
 	<tr><td>Listen on port:</td>
-		<td align=right>80<input type=radio $DEF_PORT_DIS $DEF_PORT_CHK name=port value="80" $(ttip port_tt)></td>
+		<td align=right>80<input type=radio $DEF_PORT_DIS $DEF_PORT_CHK name=http_port value="80" $(ttip port_tt)></td>
 		<td></td>
-		<td>8080<input type=radio $ALT_PORT_DIS $ALT_PORT_CHK name=port value="8080" $(ttip port_tt)></td>
+		<td>8080<input type=radio $ALT_PORT_DIS $ALT_PORT_CHK name=http_port value="8080" $(ttip port_tt)></td>
 		<td>$port_msg</td></tr>
+		<tr><td>Log requests:</td><td><input type=checkbox $LOG_CHK id=http_log_id name=log_en value="yes" onChange="sync(this, 'https_log_id')"></td></tr>
 	</table>
 	<table>
 		<tr><td></td></tr>
@@ -132,11 +142,12 @@ cat<<-EOF
 
 	<fieldset><legend>Secure Administrative HTTPS server</legend>
 	<table>
-	<tr><td>Listen on port:</td>
-		<td align=right>443<input type=radio $DEF_SPORT_DIS $DEF_SPORT_CHK name=sport value="443" $(ttip sport_tt)></td>
+		<tr><td>Listen on port:</td>
+		<td align=right>443<input type=radio $DEF_SPORT_DIS $DEF_SPORT_CHK name=https_port value="443" $(ttip sport_tt)></td>
 		<td></td>
-		<td>8443<input type=radio $ALT_SPORT_DIS $ALT_SPORT_CHK name=sport value="8443" $(ttip sport_tt)></td>
+		<td>8443<input type=radio $ALT_SPORT_DIS $ALT_SPORT_CHK name=https_port value="8443" $(ttip sport_tt)></td>
 		<td>$sport_msg</td></tr>
+		<tr><td>Log requests:</td><td><input type=checkbox $LOG_CHK id=https_log_id name=log_en value="yes" onChange="sync(this, 'http_log_id')"></td></tr>
 	</table>
 	<table>
 		<tr><td></td></tr>

@@ -3,20 +3,21 @@
 DESC="Update CA certificates once a week"
 TYPE=net
 NAME=cacert
-#REQUIRE="cron" doesn't work here
+REQUIRE="cron" # actually is cron() that implements require()
 
 . /etc/init.d/common
 
 CMD="/usr/bin/update_ca.sh"
 
-# icron() to be removed after 1.1. Copied from common:cron()
+# FIXME icron() to be removed after 1.1. Copied from common:cron()
 CRONF=/var/spool/cron/crontabs/root
 icron() {
 	if test $# = 3; then cmd="$3"; else cmd="$2"; fi
+	
 	if test "$1" = "add"; then
 		TF=$(mktemp -t)
 		crontab -l > $TF 2> /dev/null
-		sed -i "\|$"cmd".*#!# Alt-F cron$|d" $TF
+		sed -i "\|$cmd.*#!# Alt-F cron$|d" $TF
 		if test $# = 3; then
 			tspec="$2"
 		else # once a week
@@ -32,6 +33,9 @@ icron() {
 		crontab $TF 2> /dev/null
 		touch -r $TF $CRONF
 		rm $TF
+		if ! rccron status >& /dev/null; then
+			rccron start # required to handle crontabs
+		fi
 	
 	elif test "$1" = "remove"; then
 		TF=$(mktemp -t)
@@ -41,25 +45,30 @@ icron() {
 		crontab $TF 2> /dev/null
 		touch -r $TF $CRONF
 		rm $TF
+		if ! test -s $CRONF; then
+			rccron stop # no crontab, cron not required
+		fi
+
 		
 	elif test "$1" = "status"; then
 		if ! rccron status >& /dev/null; then
 			echo "$NAME stopped"
 			return 1
 		elif crontab -l 2>/dev/null | grep -q "$2.*#!# Alt-F cron$"; then
-			echo "$NAME running"
+			rccron start >& /dev/null # required to handle the crontab
+			echo -e "$DESC\n$NAME running"
 			return 0
 		else
-			echo "$NAME stopped"
+			echo -e "$DESC\n$NAME stopped"
 			return 1
-		fi		
+		fi
 	fi
 }
 		
 istart() {
 	if ! readlink -f /Alt-F >& /dev/null; then
 		if ! aufs.sh -s >& /dev/null; then
-			echo -n "$NAME: /Alt-F folder not found, install Alt-F packages."
+			echo "$NAME: /Alt-F folder not found, CA updates not persistent, install Alt-F packages."
 			return 1
 		fi
 		aufs.sh -n
@@ -68,20 +77,23 @@ istart() {
 	fi
 }
 
+ACRON=cron
+if ! type cron >& /dev/null; then
+	ACRON=icron	
+fi
+
 case "$1" in
 	start)
 		istart $NAME
-		require $NAME cron
-		echo -n "Starting $NAME: "
-		icron add $CMD
-		echo "OK."
+		$CMD # prime the CA bundle, it might be the first usage since the pkg release
+		$ACRON add $CMD
+		echo "Starting $NAME: OK."
 		;;
 	stop)
-		echo -n "Stopping $NAME: "
-		icron remove $CMD
-		echo "OK."
+		$ACRON remove $CMD
+		echo "Stopping $NAME: OK."
 		;;
-	status) icron status $CMD ;;		
+	status) $ACRON status $CMD ;;		
 	restart) restart $NAME ;;
 	*) usage $0 "start|stop|status|restart" ;;
 esac

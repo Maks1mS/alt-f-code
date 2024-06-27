@@ -7,7 +7,7 @@ read_args
 write_header "SABnzbd Setup"
 
 CONFF=/etc/sabnzbd/sabnzbd.conf
-SABNZBD_SITE=http://sourceforge.net/projects/sabnzbdplus/files/sabnzbdplus
+#SABNZBD_SITE=http://sourceforge.net/projects/sabnzbdplus/files/sabnzbdplus
 SABNZBD_DIR=/opt/SABnzbd
 
 mktt tt_update "Fill in the SABnzbd version to update to, e.g. <tt>0.7.6</tt> and hit the Update Button.<br>

@@ -5,5 +5,5 @@ Depends: ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.sudo.ws
+Source: https://www.sudo.ws
 Maintainer: jcard

@@ -4,7 +4,7 @@ config BR2_PACKAGE_ZLIB
 	  Standard (de)compression library.  Used by things like
 	  gzip and libpng.
 
-	  http://www.gzip.org/zlib/
+	  https://zlib.net
 
 config BR2_PACKAGE_ZLIB_TARGET_HEADERS
 	bool "zlib headers in target"

@@ -5,5 +5,5 @@ Depends: ncurses, gettext, ipkg
 Architecture: arm
 Priority: optional
 Section: editors
-Source: http://www.vim.org/
+Source: https://www.vim.org/
 Maintainer: jcard

@@ -5,5 +5,5 @@ Depends: sqlite-libs, ipkg
 Architecture: arm
 Priority: optional
 Section: database
-Source: http://www.sqlite.org/
+Source: https://www.sqlite.org
 Maintainer: jcard

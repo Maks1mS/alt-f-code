@@ -17,9 +17,10 @@
 ::sysinit:/etc/init.d/rcS
 
 # Put a getty on the serial port
-ttyS0::respawn:/sbin/getty -n -l /bin/sh -L ttyS0 115200 vt100
+ttyS0::respawn:/sbin/getty -n -l /usr/bin/sh2 -L ttyS0 115200 vt100
+#ttyAMA0::respawn:/sbin/getty -n -l /bin/sh -L ttyAMA0 115200 vt100
 
-# DNS-320 temperature reading
+# DNS-320/DNR-322L temperature reading
 #null::respawn:/usr/sbin/dns320-temp.sh
 
 # DNS-320L MCU daemon
@@ -27,6 +28,9 @@ ttyS0::respawn:/sbin/getty -n -l /bin/sh -L ttyS0 115200 vt100
 
 # keep inetd checker alive
 null::respawn:/usr/sbin/watch-inetd.sh
+
+# Generate random numbers and feed Linux's random device
+null::respawn:haveged -F
 
 # Logging junk
 #null::sysinit:/bin/touch /var/log/messages

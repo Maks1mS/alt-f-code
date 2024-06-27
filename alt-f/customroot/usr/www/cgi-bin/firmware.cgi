@@ -15,11 +15,11 @@ if grep -qE 'DNS-321-Ax|DNS-323' /tmp/board; then
 	initramfs=mtd3
 	flashed_kernel=$(dd if=/dev/$kernel ibs=32 skip=1 count=1 2> /dev/null | grep -o 'Alt-F.*')
 	flashed_initramfs=$(dd if=/dev/$initramfs ibs=32 skip=1 count=1 2> /dev/null | grep -o 'Alt-F.*')
-elif grep -qE 'DNS-327L|DNS-320-[AB]x|DNS-320L-Ax|DNS-325-Ax' /tmp/board; then
+elif grep -qE 'DNS-327L|DNS-320-[AB]x|DNS-320L-Ax|DNS-325-Ax|DNR-322L-Ax' /tmp/board; then
 	kernel=mtd1
 	initramfs=mtd2
-	flashed_kernel=$(nanddump -qal 1 /dev/$kernel | grep -o 'Alt-F.*')
-	flashed_initramfs=$(nanddump -qal 1 /dev/$initramfs | grep -o 'Alt-F.*')
+	flashed_kernel=$(nanddump -qal 128 /dev/$kernel | grep -o 'Alt-F.*')
+	flashed_initramfs=$(nanddump -qal 128 /dev/$initramfs | grep -o 'Alt-F.*')
 else
 	echo "<h3 class=\"error\">BUMMER, unknown board</h3></body></html>"
 	exit 1
@@ -49,8 +49,8 @@ EOF
 cat<<-EOF
 	<form action="/cgi-bin/firmware_proc.cgi" method="post" enctype="multipart/form-data">
 	<table>
-	<tr><td>Firmware binary .bin file to upload:</td><td><input type=file name=fw.bin></td></tr>
-	<tr><td>Firmware verification .sha1 file to upload:</td><td><input type=file name=fw.sha1> (optional but recommended)</td></tr>
+	<tr><td>Firmware binary .bin file to upload:</td><td><input type=file name=fw_bin></td></tr>
+	<tr><td>Firmware verification .sha1 file to upload:</td><td><input type=file name=fw_sha1> (optional but recommended)</td></tr>
 	<tr><td></td><td><input type=submit value="Upload"></td></tr>
 	</table>
 	</form>

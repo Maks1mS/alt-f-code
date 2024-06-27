@@ -15,7 +15,7 @@ echo "rcE: saving date and time to RTC"
 hwclock -wu
 
 # terminate dns320 daemons
-if echo "$board" | grep -qE "DNS-320|DNS-327"; then
+if echo "$board" | grep -qE "DNR-322L|DNS-320|DNS-327"; then
 	sed -i 's/^#*[[:space:]]*\(.*dns320.*\)/#\1/' /etc/inittab
 	kill -1 1
 fi
@@ -33,6 +33,7 @@ killall5 -KILL
 
 sleep 1
 
+# FIXME: if Alt-F packages are installed on a btrfs fs, it's has already gone...
 if aufs.sh -s >& /dev/null ; then
 	echo "rcE: unmounting aufs"
 	altf=$(readlink -f /Alt-F/)
@@ -45,9 +46,19 @@ fi
 if mount -t squashfs | grep -q /rootmnt/sqimage; then
 	echo "rcE: unmounting sqimage"
 	if aufs.sh -l | grep -q /rootmnt/sqimage; then
-		mount -o remount,del=/rootmnt/sqimage /
+		mount -t aufs -o remount,del=/rootmnt/sqimage /
 	fi
 	umount /rootmnt/sqimage
+fi
+
+# stop using ubiimage
+if mount -t ubifs | grep -q /rootmnt/ubiimage; then
+	echo "rcE: unmount ubimage"
+	if aufs.sh -l | grep -q /rootmnt/ubiimage; then
+		mount -t aufs -o remount,del=/rootmnt/ubiimage /
+	fi
+	umount /rootmnt/ubiimage
+	ubidetach -p /dev/mtd3
 fi
 
 echo "rcE: unmounting or remounting read-only all mounted filesystems"
@@ -55,8 +66,9 @@ for i in nfs cifs iso9660 davfs ext2 ext3 ext4 btrfs vfat ntfs fuseblk; do
 	umount -t $i -rf -a 
 done
 
-echo "rcE: unmouting tmpfs /tmp"
-umount /tmp
+# needed for poweroff
+#echo "rcE: unmouting tmpfs /tmp"
+#umount /tmp
 
 echo "rcE: stopping swap"
 for i in $(cat /proc/swaps | grep -o '/dev/.* '); do
@@ -152,6 +164,6 @@ fi
 mount / -o remount,ro
 echo "rcE: Poweroff NOW!"
 
-if test -f /boot/.poweroff; then
+if test -f /tmp/.poweroff; then
 	dns320l-daemon -x DeviceShutdown 3
 fi

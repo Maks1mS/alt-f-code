@@ -5,5 +5,5 @@ Depends: ncurses, ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://cnswww.cns.cwru.edu/~chet/bash/bashtop.html
+Source: https://www.gnu.org/software/bash
 Maintainer: jcard

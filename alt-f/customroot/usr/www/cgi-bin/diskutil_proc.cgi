@@ -61,12 +61,26 @@ bay_eject() {
 	fi
 }
 
+stop_swap() {
+	sdevs=$(blkid -t TYPE=swap -o device)
+	swapoff -a >& /dev/null
+	touch -r $FSTAB /tmp/fstab_date
+	sed -i '/swap/d' $FSTAB
+	for i in $sdevs; do
+		mdadm --detail --test $i >& /dev/null
+		if test $? != 4; then # RAID
+			mdadm --stop $i >& /dev/null
+		fi
+	done
+}
+
 . common.sh
 
 check_cookie
 read_args
 		    
 #debug
+#set -x
 
 CONFT=/etc/misc.conf
 BAYF=/etc/bay
@@ -100,18 +114,23 @@ if test "$action" = "smart_act"; then
 elif test "$action" = "swap_act"; then
 	for i in $(seq 1 $count); do
 		swap_dev=$(eval echo \$swapd_$i)
+		if test -z "$swap_dev"; then continue; fi
+
 		swap_pri=$(eval echo \$swapp_$i)
+		if test -z "$swap_pri"; then swap_pri=0; fi
 
 		cur_pri=$(awk '/\/dev\/'$swap_dev'/{print $5}' $SWAPP)
 		if test "$cur_pri" = "$swap_pri"; then continue; fi
 
 		swapoff /dev/$swap_dev >& /dev/null
-		eval $(blkid /dev/$swap_dev | cut -d" " -f3 | tr '-' '_')
+		#eval $(blkid /dev/$swap_dev | cut -d" " -f3 | tr '-' '_')
+		UUID=$(blkid -s UUID -o value /dev/$swap_dev | tr '-' '_')
 
 		if test -z "$UUID" -o "$swap_pri" != "0"; then
 			if test -z "$UUID" || ! blkid -t TYPE=swap /dev/$swap_dev >&/dev/null; then
 				mkswap /dev/$swap_dev >& /dev/null
-				eval $(blkid /dev/$swap_dev | cut -d" " -f3 | tr '-' '_')
+				#eval $(blkid /dev/$swap_dev | cut -d" " -f3 | tr '-' '_')
+				UUID=$(blkid -s UUID -o value /dev/$swap_dev | tr '-' '_')
 			fi
 			if ! res=$(swapon -p $swap_pri /dev/$swap_dev 2>&1); then msg "$res"; fi
 		fi
@@ -130,7 +149,7 @@ elif test "$action" = "power_act"; then
 		for i in HDPOWER_LEFT HDPOWER_RIGHT HDPOWER_USB HDSLEEP_LEFT HDSLEEP_RIGHT HDSLEEP_USB; do
 			if test -n "$(eval echo \$$i)"; then
 				sed -i '/^'$i'/d' $CONFT >& /dev/null
-				echo "$i=$(eval echo \$$i)" >> $CONFT
+				echo "$i=$(eval echo \"\$$i\")" >> $CONFT
 				prog $i $(eval echo \$$i)
 			fi
 		done
@@ -152,18 +171,9 @@ elif test "$action" = "usb_swap_act"; then
 		sed -i '/USB_SWAP/d' $CONFT >& /dev/null
 	fi
 
-elif test "$action" = "recreate_swap_act"; then
-	sdevs=$(awk '/\/dev\//{print $1}' $SWAPP)
-	swapoff -a >& /dev/null
-	touch -r $FSTAB /tmp/fstab_date
-	sed -i '/swap/d' $FSTAB
-	for i in $sdevs; do
-		mdadm --detail --test $i >& /dev/null
-		if test $? != 4; then # RAID
-			mdadm --stop $i >& /dev/null
-		fi
-	done
-
+elif test "$action" = "recreate_swapn_act"; then
+	stop_swap
+	
 	for i in /dev/sd?; do
 		p=$(sgdisk -p $i | awk '/8200/{ if ($6 == 8200) print $1}')
 		if test -n "$p"; then
@@ -174,8 +184,40 @@ elif test "$action" = "recreate_swap_act"; then
 		fi
 	done
 	swapon -a -p1 >& /dev/null
-	touch -r /tmp/fstab_date $FSTAB
+	touch -r /tmp/fstab_date $FSTAB >& /dev/null
+	rm -rf /tmp/fstab_date
 
+elif test "$action" = "recreate_swapr_act"; then
+	stop_swap
+
+	sd=""
+	for i in /dev/sd?; do
+		p=$(sgdisk -p $i | awk '/8200/{ if ($6 == 8200) print $1}')
+		if test -n "$p"; then
+			mdadm --zero-superblock $i$p >& /dev/null
+			if grep -q $(basename $i)=usb $BAYF && ! grep -q USB_SWAP=yes $CONFT ; then continue; fi
+			sd="$sd $i$p"
+		fi
+	done
+	if test -n "$sd"; then
+		nr=$(echo $sd | wc -w)
+		
+		for mdev in $(seq 0 9); do
+			if grep -q clear /sys/block/md$mdev/md/array_state >& /dev/null || \
+				! test -b /dev/md$mdev; then
+				break
+			fi
+		done
+		
+		mdadm --create /dev/md$mdev --run --metadata=1.0 --level=1 --raid-devices=$nr $sd >& /dev/null
+		mkswap /dev/md$mdev >& /dev/null
+		echo "/dev/md$mdev none swap pri=1 0 0" >>  $FSTAB
+	fi
+	
+	swapon -a -p1 >& /dev/null
+	touch -r /tmp/fstab_date $FSTAB >& /dev/null
+	rm -f /tmp/fstab_date
+	
 elif test "$action" = "load_eject_act"; then
 	if test -n "$Eject"; then
 		bay_eject $Eject

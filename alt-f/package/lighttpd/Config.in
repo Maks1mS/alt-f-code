@@ -35,12 +35,12 @@ config BR2_PACKAGE_LIGHTTPD_BZIP2
 	help
 	  Enable bzip2 support for lighttpd mod_compress.
 
-config BR2_PACKAGE_LIGHTTPD_PCRE
-	bool "pcre"
+config BR2_PACKAGE_LIGHTTPD_PCRE2
+	bool "pcre2"
 	depends on BR2_PACKAGE_LIGHTTPD
-	select BR2_PACKAGE_PCRE
+	select BR2_PACKAGE_PCRE2
 	help
-	  Enable PCRE support. Needed to support mod_rewrite
+	  Enable PCRE2 support. Needed to support mod_rewrite
 
 config BR2_PACKAGE_LIGHTTPD_WEBDAV
 	bool "webdav"

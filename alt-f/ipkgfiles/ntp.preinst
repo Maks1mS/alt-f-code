@@ -1,4 +1,4 @@
-#/bin/sh
+#!/bin/sh
 
 # stop and remove busybox ntpd
 

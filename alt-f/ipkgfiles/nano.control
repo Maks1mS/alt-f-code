@@ -5,5 +5,5 @@ Version: 2.2.6
 Architecture: arm
 Priority: optional
 Section: editors
-Source: http://www.nano-editor.org/
+Source: https://www.nano-editor.org/
 Maintainer: jcard

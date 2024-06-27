@@ -14,7 +14,7 @@
 #
 ## The following targets can be called from the shell:
 #
-# foo, foo-source, foo-patch, foo-configure, foo-build, foo-install,
+# foo, foo-source, foo-extract, foo-patch, foo-configure, foo-build, foo-install,
 # foo-install-target, foo-install-staging, foo-uninstall, foo-clean,
 # foo-dirclean
 #
@@ -75,9 +75,9 @@
 #
 ## The following variables contain targets that can be overriden
 #
-# FOO_TARGET_INSTALL_TARGET FOO_TARGET_INSTALL_STAGING FOO_TARGET_BUILD
-# FOO_TARGET_CONFIGURE FOO_TARGET_PATCH FOO_TARGET_EXTRACT FOO_TARGET_SOURCE
-# FOO_TARGET_UNINSTALL FOO_TARGET_CLEAN FOO_TARGET_DIRCLEAN
+# FOO_TARGET_INSTALL_TARGET, FOO_TARGET_INSTALL_STAGING, FOO_TARGET_BUILD
+# FOO_TARGET_CONFIGURE, FOO_TARGET_PATCH, FOO_TARGET_EXTRACT, FOO_TARGET_SOURCE
+# FOO_TARGET_UNINSTALL, FOO_TARGET_CLEAN, FOO_TARGET_DIRCLEAN
 #
 # E.g. if your package has a no <configure> script you can place the following
 # in your package makefile:
@@ -199,6 +199,7 @@ $(BUILD_DIR)/%/.stamp_libtool_patch:
 # XXX: FIXME: This has to be done differently and path-independent, i.e. use
 # XXX: FIXME: the dir-part of the stem as base-dir (instead of hardcoding
 # XXX: FIXME: "package/".
+# patch-kernel: $1=targetdir $2=patchdir patch-pattern/patch-list
 $(BUILD_DIR)/%/.stamp_patched: NAMEVER = $($(PKG)_NAME)-$($(PKG)_VERSION)
 $(BUILD_DIR)/%/.stamp_patched:
 	$(call MESSAGE,"Patching $($(PKG)_DIR_PREFIX)/$($(PKG)_NAME)")
@@ -209,12 +210,13 @@ $(BUILD_DIR)/%/.stamp_patched:
 	    toolchain/patch-kernel.sh $(@D) $($(PKG)_DIR_PREFIX)/$($(PKG)_NAME) $(NAMEVER)\*.patch $(NAMEVER)\*.patch.$(ARCH) || exit 1; \
 	  else \
 	    toolchain/patch-kernel.sh $(@D) $($(PKG)_DIR_PREFIX)/$($(PKG)_NAME) $($(PKG)_NAME)\*.patch $($(PKG)_NAME)\*.patch.$(ARCH) || exit 1; \
-	    if test -d $($(PKG)_DIR_PREFIX)/$($(PKG)_NAME)/$(NAMEVER); then \
-	      toolchain/patch-kernel.sh $(@D) $($(PKG)_DIR_PREFIX)/$($(PKG)_NAME)/$(NAMEVER) \*.patch \*.patch.$(ARCH) || exit 1; \
-	    fi; \
 	  fi; \
 	fi; \
 	)
+	# commented inside else above
+	#if test -d $($(PKG)_DIR_PREFIX)/$($(PKG)_NAME)/$(NAMEVER); then \
+	#      toolchain/patch-kernel.sh $(@D) $($(PKG)_DIR_PREFIX)/$($(PKG)_NAME)/$(NAMEVER)\*.patch \*.patch.$(ARCH) || exit 1; \
+	#fi;
 ifeq ($(BR2_UPDATE_CONFIG),y)
 	$(Q)(for file in config.guess config.sub; do \
 		for i in $$(find $(@D) -name $$file); do \

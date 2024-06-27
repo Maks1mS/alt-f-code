@@ -7,18 +7,22 @@
 
 <center><h2>Alt-F Package Manager Help</h2></center>
 
-<p>This page allows you to add functionalities to Alt-F, by downloading packages from the
-Internet and installing them on disk.
-<p>You need a working internet connection; if you need to use a proxy server, set it first using
-Setup->Proxy.
+<p>This page allows you to add functionalities to Alt-F, by downloading additional packages from the Internet and installing them on disk.
+<p>You need a working internet connection; if you need to use a proxy server, set it first using Setup->Proxy.
 
-<p>On the first time you reach the page you will be presented with the default package feeds and
-asked where on disk you want to install the packages.<br>
+<p>On the first time you reach the page you will be presented with the default package feeds<br>
 To <strong>disable</strong> a package feed its checkbox should be checked.<br>
 You can change the address of the packages origin, in case you want to setup your own package feed.<br>
-After you select a filesystem, a directory called 'Alt-F' (not 'alt-f', case is  significant) will be created and the 'ipkg' package will be downloaded and installed.
 
-<p>You will then be presented with the filesystems where the Alt-F folders where found and which is currently active. When the first Alt-F folder is found at boot time at the base of a filesystem, it will be used and activated.<br>
+<p>If no Alt-F installation is found, you are asked in which filesystem you want to install it. it is recommended to install Alt-F packages, by decreased order of preference, on either<br>
+-A dedicated and always plugged small USB pen, formated with ext3, or<br>
+-A small linux partition formated with ext4, or<br>
+-On any other disk filesystem.<br>
+</p>
+		
+After you select a filesystem, a folder called 'Alt-F' (not 'alt-f', case is  significant) will be created and the 'ipkg' package will be downloaded and installed. No further change to the selected filesystem is done.
+
+<p>You will then be presented with filesystems where Alt-F folders where found and which one is currently active. When the first Alt-F folder is found at boot time at the base of a filesystem, it will be used and activated.<br>
 You can boot disable, deactivate, copy and delete Alt-F folders from each shown filesystem; deactivating or deleting is not always possible, as it might be in use (try first to stop all services first (System->Utilities, Services, StopAll)). As a last resource you can Boot Disable it, Submit and reboot, and you will then able to manipulate it at your will. Remember that packages that you have installed on disk will not be available.
 
 <p>You will then be presented with the list of pre-installed, installed and available packages that you can update, remove or install.

@@ -5,5 +5,5 @@ Version: 3.99.5
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://lame.sourceforge.net
+Source: https://lame.sourceforge.net
 Maintainer: jcard

@@ -1,120 +1,71 @@
 #!/bin/sh
 
+# can this go away? /etc/modules replaces it?
+
 DESC="Load kernel modules"
 NAME=modload
-TYPE=required
 
 CONF_MISC=/etc/misc.conf
+CONF_MOD=/etc/modules
 
-#set -x
-
-umask 077
-
-. /etc/init.d/common
+mod="MODLOAD_IPV6 MODLOAD_CRYPTODEV MODLOAD_CESA"
 
 . $CONF_MISC
 
-mload() {
-	if lsmod | grep -q $1; then return 0; fi
-	res="$res $(modprobe -q $1 2>&1)\n"
-	st=$((st+$?))
+umask 077
+
+# convert from /etc/misc.conf to /etc/modules for compatibility
+sinit() {
+if grep -q '^MODLOAD_' $CONF_MISC; then
+	for i in $mod; do
+		if grep -q "^$i=y" $CONF_MISC; then
+			case $i in
+				MODLOAD_IPV6) j=ipv6 ;;
+				MODLOAD_CRYPTODEV) j=cryptodev ;;
+				MODLOAD_CESA) j=marvell_cesa ;;
+			esac
+			sed -i "/^$j/d" $CONF_MOD
+			echo $j >> $CONF_MOD
+		fi
+
+		if grep -q $i $CONF_MISC; then
+			sed -i "/$i/d" $CONF_MISC
+		fi
+	done
+fi
 }
 
-munload() {
-	if lsmod | grep -q ^$1; then
-		modprobe -qr $1
-	fi
-}
+. /etc/init.d/common
 
-mstat() {
-	if lsmod | grep -q ^$1; then
-		res="$res module $1 loaded\n"
-	else
-		res="$res module $1 *not* loaded\n"
-		st=$((st+1))
-	fi
-}
+mod=$(sed 's/#.*//' $CONF_MOD 2> /dev/null | tr -s '\n' ' ')
+if test -z "${mod// }"; then
+	echo "$NAME: no modules file or no modules to load."
+	return 1
+fi
 
 case "$1" in
 	start)
 		echo -n "Starting $NAME: "
-
-		st=0
-		if test "$MODLOAD_IPV6" = "y"; then
-			mload ipv6
-		fi
-
-		if test "$MODLOAD_CESA" = "y"; then
-			mload marvell_cesa
-		fi
-
-		if test "$MODLOAD_CRYPTODEV" = "y"; then
-			mload cryptodev
-		fi
-
-		omsg $st "$res"
+		modprobe -ab $mod
+		omsg $?
 		;;
-
 	stop)
 		# removing modules is not a good ideia... 
-
 		echo -n "Stopping $NAME: "
-		# ipv6 can't be removed
-		if lsmod | grep -q ipv6; then
-			echo "IPV6 module can't be removed"
-		fi
-
-		if lsmod | grep -q marvell_cesa; then
-			rmmod marvell_cesa
-		fi
-
-		if lsmod | grep -q cryptodev; then # FIXME this should disapear
-			# removing modules recursively is unreliable, dont!
-			mod="hmac sha1_generic marvell_cesa krng rng cryptomgr aead pcompress aes_generic cryptodev crypto_hash crypto_blkcipher crypto_algapi"
-			for j in $(seq 1 3); do
-				lsm=$(lsmod)
-				for i in $mod; do
-					if test "$(echo "$lsm" | awk '/^'$i'/{print $3}')" = 0; then
-						echo -n "removing module $i: "
-						rmmod $i
-						omsg $?
-						mod=$(echo $mod | sed -n 's/'$i'//p')
-					fi
-				done
-			done
-		fi
-
-		omsg 0
+		modprobe -r $mod
+		omsg $?
 		;;
-
 	status)
+		echo -n "$NAME: modules "
 		st=0
-
-		if test "$MODLOAD_IPV6" = "y"; then
-			mstat ipv6
-		fi
-
-		if test "$MODLOAD_CESA" = "y"; then
-			mstat marvell_cesa
-		fi
-
-		if test "$MODLOAD_CRYPTODEV" = "y"; then
-			mstat cryptodev
-		fi
-
-		if test -z "$res"; then
-			res="No modules loaded\n";
-			st=1;
-		fi
-
-		echo -ne "$res"
-		return $st
+		for i in $mod; do
+			if ! lsmod | grep -q $i; then
+				echo -n "$i NOT loaded, "
+				st=1;
+			fi
+		done
+		omsg $st
 		;;
-
-	restart)
-		rcmodload stop
-		rcmodload start		
-		;;
-
-	*)  usage $0 "start|stop|status" ;;
+	restart) rcmodload start ;;
+	*)  usage $0 "start|stop|status|init" ;;
 esac

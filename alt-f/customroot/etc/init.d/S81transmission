@@ -34,10 +34,25 @@ OPTS="--logfile $LOGFILE --pid-file $PIDFILE --config-dir=$TRANSMISSION_HOME"
 . /etc/init.d/common
 
 check_net() {
+	#set kernel receive and send buffer
+	#sysctl -w net.core.rmem_max=4194304 net.core.wmem_max=1048576 >& /dev/null
+	RMMAX=4194304
+	WMMAX=1048576
+
+	if test $(sysctl -n net.core.rmem_max) -lt $RMMAX; then
+			sysctl -w net.core.rmem_max=$RMMAX >& /dev/null
+	fi
+
+	if test $(sysctl -n net.core.wmem_max) -lt $WMMAX; then
+			sysctl -w net.core.wmem_max=$WMMAX >& /dev/null
+	fi
+
+	# FIXME: this seems to not be working on 3.00 when rpc-bind-address is set to "::"
+	# to listen on IPv6, then rpc-whitelist-enabled needs to be set to false?
 	network=$(hostname -i | awk -F. '{printf "%d.%d.%d.*", $1,$2,$3}')
 	if ! grep -q $(echo $network | sed 's/[.*]/\\&/g') "$TRANSMISSION_CONF"; then
 		sed -i -e 's|.*"rpc-whitelist":.*|    "rpc-whitelist": "127.0.0.1,'$network'",|' \
-			-e 's|.*"rpc-host-whitelist":.*|    "rpc-host-whitelist": "127.0.0.1,'$network'",|' \
+			-e 's|.*"rpc-host-whitelist":.*|    "rpc-host-whitelist": "127.0.0.1,::1,'$network'",|' \
 			"$TRANSMISSION_CONF"
 	fi
 }
@@ -62,8 +77,8 @@ for i in $TRANSMISSION_DIRS; do
 done
 
 if ! test -s $TRANSMISSION_CONF -a -s $TRANSMISSION_CONF2; then
-	transmission-daemon -d --watch-dir "/Public" --download-dir "" --incomplete-dir "" \
-	-u transmission -v transmission -t >& $TRANSMISSION_CONF
+	transmission-daemon -d -t -u transmission -v transmission \
+	--watch-dir "/Public" --download-dir "" --incomplete-dir "" >& $TRANSMISSION_CONF
 
 	sed -i	-e 's|.*"umask":.*|    "umask": 2, |' \
 		-e 's|.*"message-level":.*|    "message-level": 1, |' $TRANSMISSION_CONF

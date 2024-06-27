@@ -7,22 +7,31 @@ read_args
 
 #debug
 
-CONFF=/etc/misc.conf
+CONF_MISC=/etc/misc.conf
+CONF_MOD=/etc/modules
 
-. $CONFF
+. $CONF_MISC
 
-sed -i '/^MODLOAD_CESA=/d' $CONFF >& /dev/null
+sed -i "/marvell_cesa/d" $CONF_MOD
 if test -z "$use_cesa"; then
 	rmmod marvell_cesa >& /dev/null
 else
 	modprobe -q marvell_cesa  >& /dev/null
-	echo MODLOAD_CESA=y >> $CONFF
+	echo marvell_cesa >> $CONF_MOD
 fi
 
-sed -i '/^CRYPT_KEYFILE=/d' $CONFF >& /dev/null
+sed -i '/^CRYPT_KEYFILE=/d' $CONF_MISC >& /dev/null
 if test -n "$keyfile"; then
-	echo "CRYPT_KEYFILE=$(httpd -d $keyfile)" >> $CONFF
+	echo "CRYPT_KEYFILE=\"$(httpd -d $keyfile)\"" >> $CONF_MISC
 fi
+
+cclose() {
+	# find device-mapper name under /dev, e.g. /dev/dm-3 
+	tdm=$(basename $(readlink /dev/mapper/$1))
+
+	(cd /dev && ACTION=remove DEVTYPE=partition PWD=/dev MDEV=$tdm /usr/sbin/hot.sh)
+	cryptsetup --key-file=$CRYPT_KEYFILE luksClose $1
+}
 
 if test "$action" = "Format"; then
 	if ! test -f "$CRYPT_KEYFILE" -a -b "/dev/$devto"; then
@@ -59,18 +68,29 @@ if test "$action" = "Format"; then
 	fi
 elif test -n "$Open"; then
 	dsk=$Open
-	cryptsetup --key-file=$CRYPT_KEYFILE luksOpen /dev/$dsk ${dsk}-crypt
+	dm=$dsk-crypt
+	if ! test -b /dev/$dsk; then
+		if test -b /dev/mapper/$dsk; then 
+			dsk="mapper/$dsk"
+		else
+			return 0
+		fi
+	fi
+	cryptsetup --key-file=$CRYPT_KEYFILE luksOpen /dev/$dsk $dm
 
 elif test -n "$Close"; then
 	dsk=$Close
 	dm=${dsk}-crypt
+	cclose $dm
 	
-	# find device-mapper name under /dev, e.g. /dev/dm-3 
-	eval $(dmsetup ls | awk '/'$dm'/{printf "mj=%d mi=%d", substr($2,2), $3}')
-	eval $(awk '/'$mj' *'$mi'/{printf "tdm=%s", $4}' /proc/partitions)
-
-	(cd /dev && ACTION=remove DEVTYPE=partition PWD=/dev MDEV=$tdm /usr/sbin/hot.sh)
-	cryptsetup --key-file=$CRYPT_KEYFILE luksClose $dm
+elif test -n "$Wipe"; then
+	dsk=$Wipe
+	dm=${dsk}-crypt
+	if cryptsetup status $dm >& /dev/null; then
+		cclose $dm
+	fi
+	if test -b /dev/$dsk; then dev=/dev/$dsk; else dev=/dev/mapper/$dsk; fi
+	dd if=/dev/urandom of=$dev bs=512 count=40960 >& /dev/null
 fi
 
 #enddebug

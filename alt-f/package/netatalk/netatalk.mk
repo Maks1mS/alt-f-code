@@ -4,9 +4,10 @@
 #
 ############################################################
 
-NETATALK_VERSION = 3.1.12
-NETATALK_SOURCE = netatalk-$(NETATALK_VERSION).tar.bz2
-NETATALK_SITE = $(BR2_SOURCEFORGE_MIRROR)/project/netatalk/netatalk/$(NETATALK_VERSION)
+NETATALK_VERSION = 3.1.18
+NETATALK_VERSION2 = 3-1-18
+NETATALK_SOURCE = netatalk-$(NETATALK_VERSION).tar.xz
+NETATALK_SITE = $(BR2_SOURCEFORGE_MIRROR)/project/netatalk/netatalk-$(NETATALK_VERSION2)
 
 NETATALK_LIBTOOL_PATCH = NO
 NETATALK_AUTORECONF = NO
@@ -41,5 +42,5 @@ $(NETATALK_HOOK_POST_CONFIGURE):
 	touch $@
 
 $(NETATALK_HOOK_POST_INSTALL):
-	rm -rf $(TARGET_DIR)/usr/share/aclocal $(TARGET_DIR)/usr/bin/asip-status.pl $(TARGET_DIR)/usr/bin/netatalk-config
+	rm -rf $(TARGET_DIR)/usr/share/aclocal $(TARGET_DIR)/usr/bin/asip-status* $(TARGET_DIR)/usr/bin/netatalk-config
 	touch $@

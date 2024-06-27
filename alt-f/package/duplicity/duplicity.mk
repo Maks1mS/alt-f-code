@@ -2,16 +2,17 @@
 #
 # duplicity
 #
-#############################################################
+############################################################
 
-DUPLICITY_VERSION:=0.6.25
-DUPLICITY_SITE:=https://code.launchpad.net/duplicity/0.6-series/$(DUPLICITY_VERSION)/+download
-DUPLICITY_SOURCE:=duplicity-$(DUPLICITY_VERSION).tar.gz
+DUPLICITY_VERSION:=0.8.16
+DUPLICITY_SITE:=https://gitlab.com/duplicity/duplicity/-/archive/rel.$(DUPLICITY_VERSION)
+DUPLICITY_SOURCE:=duplicity-rel.$(DUPLICITY_VERSION).tar.bz2
+DUPLICITY_DIR:=$(BUILD_DIR)/duplicity-$(DUPLICITY_VERSION)
 
 DUPLICITY_LIBTOOL_PATCH = NO
 DUPLICITY_INSTALL_STAGING = NO
 
-DUPLICITY_DEPENDENCIES = librsync gnupg pycrypto
+DUPLICITY_DEPENDENCIES = librsync gnupg python pycrypto cryptography
 
 DUPLICITY_CFLAGS = CFLAGS+=" -I$(STAGING_DIR)/usr/include/python$(PYTHON_VERSION_MAJOR)"
 DUPLICITY_SITE_PACKAGE_DIR=usr/lib/python$(PYTHON_VERSION_MAJOR)/site-packages/duplicity
@@ -22,6 +23,7 @@ $(DUPLICITY_TARGET_CONFIGURE):
 	touch $@
 
 $(DUPLICITY_TARGET_BUILD):
+	pip install setuptools-scm==3.4.3
 	(cd $(DUPLICITY_DIR); \
 		$(TARGET_CONFIGURE_OPTS) $(TARGET_CONFIGURE_ENV) LDSHARED="$(TARGET_CC) -shared" $(DUPLICITY_CFLAGS) \
 		LD_LIBRARY_PATH=$(HOST_DIR)/usr/lib/ $(HOST_DIR)/usr/bin/python setup.py \

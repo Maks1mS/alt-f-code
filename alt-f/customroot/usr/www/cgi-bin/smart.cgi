@@ -19,7 +19,7 @@ wday=""
 	echo $wday
 }
 
-if test -e $CONFO; then
+if test -s $CONFO; then
 	. $CONFO
 fi
 
@@ -85,10 +85,7 @@ else
 	WAKEF=checked;
 fi
 
-if test -e $CONFO; then
-	SENDTO=$(awk -F= '/^MAILTO/{print $2}' $CONFO)
-	if test -z "$SENDTO"; then NOMAILF=disabled; fi
-fi
+if test -z "$MAILTO"; then NOMAILF=disabled; fi
 
 if ! test "$MAILF" = "checked"; then
 	MAILTF="disabled"
@@ -118,7 +115,7 @@ cat<<-EOF
 	<tr><td><input type=checkbox $AUTOF name="offlineauto" value="yes">
 	Scans the drive every four hours for disk defects</td></tr>
 
-	<tr><td><br>Send mail to <input type=text readonly name=sendto value="$SENDTO">
+	<tr><td><br>Send mail to <input type=text readonly name=sendto value="$MAILTO">
 	Use "Setup Mail" to change</td></tr>
 
 	<tr><td><input type=checkbox id="mail_error" $MAILF $NOMAILF name="mailerror" value="yes" onclick="toogle()">

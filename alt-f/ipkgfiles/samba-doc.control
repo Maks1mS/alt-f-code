@@ -5,5 +5,5 @@ Version: 3.6.25
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.samba.org
+Source: https://www.samba.org
 Maintainer: jcard

@@ -4,9 +4,10 @@
 #
 #############################################################
 
-LIGHTTPD_VERSION = 1.4.35
-LIGHTTPD_SOURCE = lighttpd-$(LIGHTTPD_VERSION).tar.bz2
-LIGHTTPD_SITE = http://download.lighttpd.net/lighttpd/releases-1.4.x
+LIGHTTPD_VERSION = 1.4.64
+LIGHTTPD_SOURCE = lighttpd-$(LIGHTTPD_VERSION).tar.xz
+LIGHTTPD_SITE = https://download.lighttpd.net/lighttpd/releases-1.4.x
+
 LIGHTTPD_LIBTOOL_PATCH = NO
 LIGHTTPD_DEPENDENCIES = uclibc
 
@@ -43,29 +44,30 @@ else
 LIGHTTPD_CONF_OPT += --without-bzip2
 endif
 
-ifeq ($(BR2_PACKAGE_LIGHTTPD_PCRE),y)
-LIGHTTPD_CONF_ENV += PCRE_LIB="-lpcre"
-LIGHTTPD_DEPENDENCIES += pcre
-LIGHTTPD_CONF_OPT += --with-pcre
+ifeq ($(BR2_PACKAGE_LIGHTTPD_PCRE2),y)
+LIGHTTPD_CONF_ENV += PCRE2_LIB="-lpcre2"
+LIGHTTPD_DEPENDENCIES += pcre2
+LIGHTTPD_CONF_OPT += --with-pcre2
 else
-LIGHTTPD_CONF_OPT += --without-pcre
+LIGHTTPD_CONF_OPT += --without-pcre2
 endif
 
 ifeq ($(BR2_PACKAGE_LIGHTTPD_WEBDAV),y)
-LIGHTTPD_DEPENDENCIES += sqlite libxml2 libuuid
+LIGHTTPD_DEPENDENCIES += sqlite libxml2 e2fsprogs libiconv xz
 LIGHTTPD_CONF_OPT += --with-webdav-props --with-webdav-locks
 LIGHTTPD_CONF_ENV += LIBS="-lpthread"
 endif
 
 $(eval $(call AUTOTARGETS,package,lighttpd))
 
-$(LIGHTTPD_HOOK_POST_CONFIGURE):
-	sed -i '/^#define HAVE_SENDFILE_BROKEN/d' $(LIGHTTPD_DIR)/config.h
+#$(LIGHTTPD_HOOK_POST_CONFIGURE):
+#	sed -i '/^#define HAVE_SENDFILE_BROKEN/d' $(LIGHTTPD_DIR)/config.h
 
 $(LIGHTTPD_HOOK_POST_INSTALL):
 	mkdir -p $(TARGET_DIR)/etc/lighttpd
 	cp -a $(LIGHTTPD_DIR)/doc/config/* $(TARGET_DIR)/etc/lighttpd
 	find $(TARGET_DIR)/etc/lighttpd -name Makefile\* -delete
+	touch $@
 
 $(LIGHTTPD_TARGET_UNINSTALL):
 	$(call MESSAGE,"Uninstalling")
@@ -73,3 +75,4 @@ $(LIGHTTPD_TARGET_UNINSTALL):
 	rm -f $(TARGET_DIR)/usr/sbin/lighttpd-angel
 	rm -rf $(TARGET_DIR)/usr/lib/lighttpd
 	rm -f $(LIGHTTPD_TARGET_INSTALL_TARGET) $(LIGHTTPD_HOOK_POST_INSTALL)
+	touch $@

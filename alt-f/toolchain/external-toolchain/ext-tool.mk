@@ -46,7 +46,7 @@ copy_toolchain_lib_root = \
 	STRIP="$(strip $4)"; \
 	TPREFIX="$(strip $5)"; \
  \
-	LIB_DIR="$${SYSROOT_DIR}/lib $${SYSROOT_DIR}/usr/$${TPREFIX}/lib" ; \
+	LIB_DIR="$${SYSROOT_DIR}/lib ${SYSROOT_DIR}/usr/lib $${SYSROOT_DIR}/usr/$${TPREFIX}/lib" ; \
 	for FILE in `find $${LIB_DIR} -maxdepth 1 -name "$${LIB}.*"`; do \
 		LIB=`basename $${FILE}`; \
 		DIR=`dirname $${FILE}`; \
@@ -154,7 +154,7 @@ check_uclibc_feature = \
 #
 check_uclibc = \
 	SYSROOT_DIR="$(strip $1)"; \
-	if ! test -f $${SYSROOT_DIR}/lib/ld-uClibc.so.* ; then \
+	if ! test -f $${SYSROOT_DIR}/lib/ld-uClibc.so.0 ; then \
 		echo "Incorrect selection of the C library"; \
 		exit -1; \
 	fi; \
@@ -195,9 +195,9 @@ check_cross_compiler_exists = \
 		exit 1 ; \
 	fi ; \
 
-uclibc: dependencies $(STAMP_DIR)/ext-toolchain-installed
+uclibc: dependencies $(PROJECT_BUILD_DIR)/ext-toolchain-installed
 
-EXTERNAL_LIBS=libc.so libcrypt.so libdl.so libgcc_s.so libm.so libnsl.so libpthread.so libresolv.so librt.so libutil.so
+EXTERNAL_LIBS=libc.so libcrypt.so libdl.so libgcc_s.so libm.so libnsl.so libpthread.so libresolv.so librt.so libutil.so libatomic.so
 ifeq ($(BR2_TOOLCHAIN_EXTERNAL_UCLIBC),y)
 EXTERNAL_LIBS+=ld-uClibc.so
 else
@@ -210,6 +210,22 @@ endif
 
 SYSROOT_DIR=$(shell LANG=C $(TARGET_CC) -v 2>&1 | grep ^Configured | tr " " "\n" | grep -- "--with-sysroot" | head -1 | cut -f2 -d=)
 
+$(PROJECT_BUILD_DIR)/ext-toolchain-installed: $(STAMP_DIR)/ext-toolchain-installed
+	mkdir -p $(TARGET_DIR)/lib $(TARGET_DIR)/usr/bin
+	@echo "Copy external toolchain libraries from $(SYSROOT_DIR) to target..."
+	$(Q)for libs in $(EXTERNAL_LIBS); do \
+		echo "copy $$libs"; \
+		$(call copy_toolchain_lib_root,$(SYSROOT_DIR),$$libs,/lib,$(BR2_TOOLCHAIN_EXTERNAL_STRIP),$(BR2_TOOLCHAIN_EXTERNAL_PREFIX)); \
+	done
+	# uclibc-0.9.30.3 compat
+	for i in libcrypt.so.0 libdl.so.0 libm.so.0 libnsl.so.0 \
+		libpthread.so.0 libresolv.so.0 librt.so.0 libutil.so.0; do \
+		ln -sfr $(TARGET_DIR)/lib/libc.so.0 $(TARGET_DIR)/lib/$$i; \
+	done
+	# copy ldd to target (BR2_UCLIBC_INSTALL_UTILS defined in br-2019 .config)
+	cp $(SYSROOT_DIR)/../../../target/usr/bin/ldd $(TARGET_DIR)/usr/bin
+	touch $@
+	
 $(STAMP_DIR)/ext-toolchain-installed:
 	@echo "Checking external toolchain settings"
 	$(Q)$(call check_cross_compiler_exists)
@@ -225,14 +241,12 @@ ifeq ($(BR2_TOOLCHAIN_EXTERNAL_UCLIBC),y)
 else
 	$(Q)$(call check_glibc,$(SYSROOT_DIR))
 endif
-	mkdir -p $(TARGET_DIR)/lib $(TARGET_DIR)/usr/bin
-	@echo "Copy external toolchain libraries from $(SYSROOT_DIR) to target..."
-	$(Q)for libs in $(EXTERNAL_LIBS); do \
-		echo "copy $$libs"; \
-		$(call copy_toolchain_lib_root,$(SYSROOT_DIR),$$libs,/lib,$(BR2_TOOLCHAIN_EXTERNAL_STRIP),$(BR2_TOOLCHAIN_EXTERNAL_PREFIX)); \
-	done
+	# 	mkdir -p $(TARGET_DIR)/lib $(TARGET_DIR)/usr/bin
+	# 	@echo "Copy external toolchain libraries from $(SYSROOT_DIR) to target..."
+	# 	$(Q)for libs in $(EXTERNAL_LIBS); do \
+	# 		echo "copy $$libs"; \
+	# 		$(call copy_toolchain_lib_root,$(SYSROOT_DIR),$$libs,/lib,$(BR2_TOOLCHAIN_EXTERNAL_STRIP),$(BR2_TOOLCHAIN_EXTERNAL_PREFIX)); \
+	# 	done
 	@echo "Copy external toolchain sysroot to staging..."
 	$(Q)$(call copy_toolchain_sysroot,$(SYSROOT_DIR))
-	cp $(STAGING_DIR)/usr/$(ARCH)-linux/target_utils/ldd $(TARGET_DIR)/usr/bin
-	$(TARGET_CROSS)strip $(TARGET_DIR)/usr/bin/ldd
 	@touch $@

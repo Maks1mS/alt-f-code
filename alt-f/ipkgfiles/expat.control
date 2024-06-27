@@ -5,5 +5,5 @@ Description: The Expat XML Parser.
 Architecture: arm
 Priority: optional
 Section: libraries
-Source: http://expat.sourceforge.net
+Source: https://expat.sourceforge.net
 Maintainer: jcard

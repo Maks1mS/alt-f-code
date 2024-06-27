@@ -5,5 +5,5 @@ Version: 0.1.12-5
 Architecture: arm
 Priority: optional
 Section: libraries
-Source: http://libusb.sourceforge.net/
+Source: https://libusb.sourceforge.net/
 Maintainer: jcard

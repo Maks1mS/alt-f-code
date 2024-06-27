@@ -102,29 +102,37 @@ systems_st() {
 
 	mem=0; physmem=0
 	swap=0; swapv="None"
-	eval $(free | awk '/^Mem:/ { physmem=$2 } \
-            /^-\/+/ { printf "mem=%d; physmem=%d;", $3*100/physmem, physmem/1024} \
-            /^Swap:/ { if ($2 != 0) { printf "swap=%d; swapv=\"%dMB\";", $3*100/$2, $2/1024}}')
-	if test "$swapv" = "None"; then
+	eval $(awk '/MemTotal/ {memt=$2} \
+		/MemFree/ {memf=$2} \
+		/Buffers/ {buff=$2} \
+		/^Cached/ {cached=$2} \
+		/SReclaimable/ {slabr=$2} \
+		/SwapTotal/ {swapt=$2} \
+		/SwapFree/ {swapf=$2} \
+	END { \
+		used=memt-memf-buff-cached-slabr; \
+		if (swapt != 0) swapv=(swapt-swapf)*100/swapt; \
+		printf("physmem=%d mem=%.0f swap=%d swapv=%.0f", \
+		memt/1000, used*100/memt, swapv, swapt/1000); \
+	}' /proc/meminfo)
+
+	if test $swapv -eq 0; then
+		swapv="None"
 		memalert=""
 		swap=100	# Trigger red alert if no swap
 	else
 		memalert="101 102"	# always green as long as we have swap configured
-		swapv="$swap% of $swapv"
+		swapv="$swap% of ${swapv}MB"
 	fi
+	
 	if test $physmem -eq 0; then
 		physmem="Unknown"
-	else # Round up memory
-		if test $physmem -le 64; then physmem="64MB"
-		elif test $physmem -le 128; then physmem="128MB"
-		elif test $physmem -le 256; then physmem="256MB"
-		elif test $physmem -le 512; then physmem="512MB"
-		elif test $physmem -le 1024; then physmem="1GB"
-		fi
+	else
+		physmem=${physmem}MB	
 	fi
-
-	eval $(awk '{ days = $1/86400; hours = $1 % 86400 / 3600; \
-		printf "up=\"%d day(s) %d hour(s)\"", days, hours }' /proc/uptime)
+	
+	eval $(awk '{ d = int($1/86400); h = int($1 % 86400 / 3600); m = int($1 % 3600 / 60);
+		printf "up=\"%d day%s %d hour%s %d minute%s\"", d, (d==1) ? "" : "s", h, (h==1) ? "" : "s", m, (m==1) ? "" : "s" }' /proc/uptime)
 
 	board=$(cat /tmp/board)
 
@@ -148,7 +156,7 @@ systems_st() {
 	cat<<-EOF
 		<fieldset><legend>System</legend>
 		<table><tr>
-			<td><div class="bgl">Temperature</div> $(drawbargraph $temp $tempv )</td>
+			<td><div class="bgl">Temperature</div> $(drawbargraph $temp $tempv)</td>
 			<td><div class="bgl">Fan speed</div> $(drawbargraph $fan $fanv)</td>
 			<td><div class="bgl">Load</div> $(drawbargraph $load $loadv)</td>
 			<td><div class="bgl">CPU</div> $(drawbargraph $cpu)</td>
@@ -270,9 +278,10 @@ raid_st() {
  		</tr>
 	EOF
 
-	for i in /dev/md[0-9]*; do
-		if ! test -b $i; then continue; fi
+	for i in $(ls /dev/md[0-9]* 2>/dev/null); do
 		mdev=$(basename $i)
+		if ! test -b $i -a -d /sys/block/$mdev; then continue; fi
+		
 		state=$(cat /sys/block/$mdev/md/array_state)
 		# if test "$state" = "clear"; then continue; fi
 
@@ -339,12 +348,11 @@ filesys() {
 			if res=$(tune2fs -l $dsk 2> /dev/null); then
 				eval $(echo "$res" | awk \
 					'/^Filesystem state:/ { if ($3 != "clean") printf "dirty=*;"} \
-					/^Mount count:/ {FS=":"; curr_cnt=$2} \
-					/^Maximum mount count:/ {FS=":"; max_cnt=$2} \
+					/^Mount count:/ {FS=":"; printf "curr_cnt=%d;", $2} \
+					/^Maximum mount count:/ {FS=":"; printf "max_cnt=%d;", $2} \
 					/^Next check after:/ {FS=" "; 
 						mth = index("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec", $5) / 4 + 1; 
-						printf "days=\"%s-%d-%s %s\";", $8, mth, $6, $7 } 
-					END {printf "cnt=%d;", max_cnt - curr_cnt}')
+						printf "days=\"%s-%d-%s %s\";", $8, mth, $6, $7 }')
 			fi
 
 			if test -n "$days"; then
@@ -353,10 +361,15 @@ filesys() {
 					days="<span class=\"red\">$days days</span>"
 				else
 					days="$days days"
-				 fi
+				fi
+			else
+					days="(time check disabled)"
 			fi
 
-			if test -n "$cnt"; then
+			if test "$max_cnt" -lt 0; then
+				cnt="(mount check disabled)"
+			elif test -n "$curr_cnt"; then
+				cnt=$((max_cnt - curr_cnt))
 				if test "$cnt" -lt 5 ; then
 					cnt="<span class=\"red\">$cnt mounts or</span>"
 				else
@@ -455,7 +468,7 @@ mounted_remote_filesystems_st() {
 }
 
 remotely_mounted_filesystems_st() {
-	smbm="$(smbstatus -S 2> /dev/null | tail -n +4)"
+	smbm="$(smbstatus -S 2> /dev/null | awk 'FNR>3{if (length($0)) print $3, $1}')"
 	nfsm="$(showmount --no-headers --all 2> /dev/null)"
 
 	if test -z "$smbm" -a -z "$nfsm"; then
@@ -472,14 +485,10 @@ remotely_mounted_filesystems_st() {
 	EOF
 
 	if test -n "$smbm"; then
-		echo "$smbm" | awk '{
-			srv = NF - 7
-			pos = index($0, $(srv + 1))
-			share = substr($0, 1, pos-1)
-			host = $(srv+2)
-			#if (NF == 7) host="--"
-			printf("<tr><td>%s</td><td>%s</td><td>cifs</td></tr>\n", host, share)
-			}' | sort -u
+		echo "$smbm" | while read host share; do
+			host=$(gethname "$host")
+			echo "<tr><td>$host</td><td>$share</td><td>cifs</td></tr>"
+		done
 	fi
 
 	if test -n "$nfsm"; then
@@ -500,29 +509,30 @@ backup_st() {
 
 	bpid=$(cat /var/run/backup.pid)
 	if ! kill -0 $bpid >& /dev/null; then
-		rm /var/run/backup.pid
+		rm -f /var/run/backup.pid
 		return
 	fi
 
 	cat<<-EOF
 		<fieldset><legend>Backup</legend>
-		<table><tr><th>ID</th><th>Type</th><th>Folder</th><th>State</th></tr>
+		<table><tr><th>ID</th><th>Host</th><th>Type</th><th>Folder</th><th>State</th></tr>
 	EOF
 
 	for i in /tmp/backup-state.*; do
 		id=${i##*.}
 		if ! grep -q "^$id;" /etc/backup.conf; then
-			rm $i
+			rm -f $i
 			continue
 		fi
 
 		st=$(cat $i)
 		bdir=$(grep ^$id /etc/backup.conf | cut -d";" -f6)
 		type=$(grep ^$id /etc/backup.conf | cut -d";" -f2)
+		host=$(grep ^$id /etc/backup.conf | cut -d";" -f4)
 		if test "$st" = "In progress"; then
-			st="<span class=\"red\">In progress</span>"
+			st="<span class=\"warn\">In progress</span>"
 		fi
-		echo "<tr><td>$id</td><td>$type</td><td>$bdir</td><td align=center>$st</td></tr>"
+		echo "<tr><td>$id</td><td>$host</td><td>$type</td><td>$bdir</td><td align=center>$st</td></tr>"
 	done
 
 	echo "</table></fieldset>"

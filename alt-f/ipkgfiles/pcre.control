@@ -5,5 +5,5 @@ Description: Perl Compatible Regular Expressions
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.pcre.org/
+Source: https://www.pcre.org/
 Maintainer: jcard

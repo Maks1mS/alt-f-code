@@ -5,5 +5,5 @@ Depends: ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.thekelleys.org.uk/dnsmasq/
+Source: https://www.thekelleys.org.uk/dnsmasq/
 Maintainer: jcard

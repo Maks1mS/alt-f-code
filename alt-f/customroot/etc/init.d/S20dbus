@@ -4,6 +4,8 @@
 
 NAME=dbus-daemon
 NAME2=dbus-uuidgen
+DESC="DBUS daemon"
+
 NEED_ALTF_DIR=1
 
 RC_USER=dbus
@@ -49,6 +51,6 @@ case "$1" in
 	stop) istop ;;
 	status) status $NAME; RETVAL=$? ;;
 	restart) restart $NAME; RETVAL=$? ;;
-	*) echo $"Usage: $0 {start|stop|status|restart}";;
+	*) usage $0 "{start|stop|status|restart}" ;;
 esac
 exit $RETVAL

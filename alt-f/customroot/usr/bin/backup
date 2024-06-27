@@ -1,34 +1,63 @@
 #!/bin/sh
 
-exec >> /var/log/backup.log 2>&1
-#set -x
-echo -e "\nDATE=$(date)"
-
 # backup.conf
 # structure for type=dir, when/at should be crontab compatible, at least for now
 #id;type;runas;host;mac;srcdir;dstdir;when;at;log;nlogs
 
+CONF_M=/etc/misc.conf
 CONF_BACKUP=/etc/backup.conf
 SERRORL=/var/log/systemerror.log
 
-lockfile=/var/lock/backup.lockdir
+LOCKFILE=/var/lock/backup.lockdir
+LOGFILE=/var/log/backup.log
+PIDFILE=/var/run/backup.pid
+STATEFILE=/tmp/backup-state.
+
+#set -x
+
+error() {
+	logger -st backup "$1"
+	if test -n "$BACKUP_LOG"; then
+		echo "<li>Error on Backup ID $id: $1</li>" >> $SERRORL
+		echo "$1" | mail -s "Error on backup ID $id on host $host" -a $destname/${date}.log $MAILTO
+	fi
+}
+
+cleanup() {
+	logger -st backup "$1"
+	if test "$2" != 0; then
+		ERR="Error on"
+	fi
+
+	if test -n "$BACKUP_LOG"; then
+		ln=$(grep -n DATE= $LOGFILE | tail -1 | cut -d: -f1)
+		sed -n $ln,\$p $LOGFILE | \
+		mail -s "$ERR Backup log of $save_srcpath on $host at ${date-$(date)}" -a $destname/${date}.log $MAILTO
+	fi
+
+	lock
+	rm -f $PIDFILE ${STATEFILE}$id
+	unlock
+
+	exit $2
+}
 
 lock() {
-	while ! mkdir $lockfile >& /dev/null; do
+	while ! mkdir $LOCKFILE >& /dev/null; do
 		sleep 5
 	done
 }
 
 unlock() {
-	rmdir $lockfile >& /dev/null
+	rmdir $LOCKFILE >& /dev/null
 }
 
 exclusive() {
 	lock
-	while test -e /var/run/backup.pid; do
-		if kill -0 $(cat /var/run/backup.pid) >& /dev/null; then
+	while test -e $PIDFILE; do
+		if kill -0 $(cat $PIDFILE) >& /dev/null; then
 			# logger -st backup "backup $id waiting a minute, other backup is occurring."
-			echo "Queued" > /tmp/backup-state.$id
+			echo "Queued" > ${STATEFILE}$id
 			unlock
 			sleep 60
 			lock
@@ -37,23 +66,9 @@ exclusive() {
 		fi
 	done
 
-	echo $$ > /var/run/backup.pid
-	echo "In progress" > /tmp/backup-state.$id
+	echo $$ > $PIDFILE
+	echo "In progress" > ${STATEFILE}$id
 	unlock
-}
-
-# $1=id
-details() {
-	IFS=";"
-	while read id type runas host mac srcpath dstpath when at log nlogs rest; do
-		if test -z "$id" -o -z "$type" -o -z "$runas" -o -z "$srcpath" -o -z "$dstpath" \
-			-o -z "$when" -o -z "$at" -o -z "$log" -o -z "$nlogs"; then continue; fi
-		if test "${id:0:1}" = "#"; then continue; fi
-		if test "$1" = "$id"; then return 0; fi
-#echo $id $type $runas $host $mac $srcpath $dstpath $when $at $log +$nlogs+ -$rest-
-	done < $CONF_BACKUP 
-
-	return 1
 }
 
 clean_logs() {
@@ -61,7 +76,7 @@ clean_logs() {
 	while test "$((clogs - 1))" -gt "$nlogs"; do
 		clogs=$((clogs-1))
 		last=$(ls $ddname | grep '^....-..-.._..-..-..$' | head -1)
-		logger -st backup "backup $id with $clogs backups ($nlogs configured), removing oldest $last"
+		logger -st backup "Backup $id with $clogs backups ($nlogs configured), removing oldest $last"
 		rm -rf "$last" "${last}.log" 
 	done
 }
@@ -79,7 +94,7 @@ wakeup() {
 	ether-wake $mac
 
 	for i in 1 2 3 4 5; do
-		sleep 30
+		sleep 60
 		if ping -W 3 -c 2 $host >& /dev/null; then
 			logger -st backup "ID $id: $host is awake"
 			return 0
@@ -92,11 +107,12 @@ wakeup() {
 }
 
 # For log format see rsync man page: --itemize-changes. Essentially
+# >f+++++++++ file' mean a new file
 # >f.s....... file' means file was updated due to size change
 # >f..t...... file' means file was updated due to time change
-# >f+++++++++ file' mean a new file
-# cd..tpog... dir' means a created dir
 # .f..xxx  file' means no file content change, only xxx attributes
+#
+# cd..tpog... dir' means a created dir
 # .d..xxx  dir' means no dir change, only xxx attributes
 #
 # srcpath - from, destname - to
@@ -107,28 +123,48 @@ do_backup() {
 	chown ${runas}:${gid} $destname
 	chown ${runas}:${gid} $destname/$date
 
+	# rsync errors
+	err_1="Syntax or usage error"
+	err_2="Protocol incompatibility"
+	err_3="Errors selecting input/output files, dirs"
+	err_4="Requested action not supported: an attempt was made to manipulate
+	64-bit files on a platform that cannot support them; or an option
+	was  specified  that  is  supported  by the client and not by the
+	server"
+	err_5="Error starting client-server protocol"
+	err_6="Daemon unable to append to log-file"
+	err_10="Error in socket I/O"
+	err_11="Error in file I/O"
+	err_12="Error in rsync protocol data stream"
+	err_13="Errors with program diagnostics"
+	err_14="Error in IPC code"
+	err_20="Received SIGUSR1 or SIGINT"
+	err_21="Some error returned by waitpid()"
+	err_22="Error allocating core memory buffers"
+	err_23="Partial transfer due to error"
+	err_24="Partial transfer due to vanished source files"
+	err_25="The --max-delete limit stopped deletions"
+	err_30="Timeout in data send/receive"
+	err_35="Timeout waiting for daemon connection"
+	
 	if test $type = "rsync" -o -e "$destname/current"; then
-		rsync_opt="$rsync_pass --link-dest=$destname/current"
-	else
-		first_time=1
-	fi
-
-	if test -z "$first_time"; then
-		# the '/' in "$srcpath" is to copy directory contents, not directory
+		# the trailing '/' in "$srcpath" is to copy folder contents,
+		# not the folder itself
 		res=$(su -c "nice rsync -ax -F --delete-excluded --stats \
-			--log-file=$destname/${date}.log $rsync_opt \
+			--log-file=$destname/${date}.log $rsync_pass \
+			--link-dest=$destname/current \
 			\"${rsync_host}${srcpath}/\" \"$destname/$date\" " ${runas} )
 		st=$?
+		if test $st != 0; then res="($(eval echo \$err_$st)) $res"; fi
 	else
 		res=$(su -c "cd \"$srcpath\"; cp -a ./ \"$destname/$date/\" " ${runas})
 		st=$?
 		if test $st = 0; then res="First backup, all data copied"; fi
 	fi
-
-	if test "$st" != 0; then
-		msg="$id failed but continuing nevertheless, err=$st: $res"
-		logger -st backup "$msg"
-		echo "<li><pre>Backup $msg</pre>" >> $SERRORL
+       
+	if test $st != 0; then 
+		msg="An error occurred, continuing anyway, err=$st $res"
+		error "$msg"
 	fi
 
 	cd $destname
@@ -152,9 +188,8 @@ dir_backup() {
 	fi
 
 	if ! test -d "$srcpath"; then
-		msg="ID $id: $srcpath does not exists, exiting."
-		logger -st backup "$msg"
-		echo "<li><pre>Backup $msg</pre>" >> $SERRORL
+		msg="$srcpath does not exists, exiting."
+		error "$msg"
 		return 1
 	fi
 	
@@ -178,34 +213,33 @@ nfs_mount() {
 }
 
 cifs_mount() {
-	cnt=0
-	while ! smbtree -NbS | grep -qi \\\\$host; do
-		logger -st backup "ID $id: waiting for CIFS on host $host"
-		sleep 10
-		cnt=$((cnt+1))
-		if test "$cnt" = 6; then return 1; fi
-	done
+	#	smbtree this only works for SMB1
 
-	uid=$(id -u $runas); gid=$(id -g $runas)
-	mount -t cifs -o ro,iocharset=utf8,noserverino,credentials=/etc/samba/credentials.$runas,uid=$uid,gid=$gid \
-		"//$host/$srcpath" $mtddir
-	st=$?
-	if test "$st" = 16; then st=0; fi # /etc/mtab issue (linked to /proc/mounts)
-	if test "$st" = 0; then
-		mount -o remount,ro $mtddir # mount.cifs seems to not honour mount '-r' or '-o rp'
-	fi
+	uid=$(id -u $runas); gid=$(id -g $runas); cnt=6
+	while test $cnt != 0; do
+		mount -t cifs -o ro,vers=2.0,iocharset=utf8,noserverino,credentials=/etc/samba/credentials.$runas,uid=$uid,gid=${gid}${altuser} \
+			"//$host/$srcpath" $mtddir
+		st=$?
+		if test "$st" = 32; then
+			altuser=",username=$runas" # a linux box using cifs?
+			echo "Permission denied as user $(awk -F= '/jcard/{print $2}' /etc/samba/smbusers), retrying as user \"$runas\""
+		elif test "$st" = 16; then st=0 # /etc/mtab issue (linked to /proc/mounts)
+		elif test "$st" = 0; then
+			mount -o remount,ro $mtddir # mount.cifs seems to not honour mount '-r' or '-o ro'
+			return $st
+		fi
+		cnt=$((--cnt))
+		sleep 10
+	done
 	return $st
 }
 
 cifs_nfs_backup() {
 	if ! wakeup; then
-		msg="ID $id: host $host not answering, exiting."
-		logger -st backup "$msg"
-		echo "<li><pre>Backup $msg</pre>" >> $SERRORL
+		msg="host $host not answering, exiting."
+		error "$msg"
 		return 1
 	fi
-
-	save_srcpath="$srcpath"
 
 	mtddir=/tmp/backup-$id
 	mkdir -p $mtddir
@@ -224,9 +258,8 @@ cifs_nfs_backup() {
 		st=$?
 		umount $mtddir
 	else
-		msg="ID ${id}: unable to $type mount $host:$save_srcpath, err=$st, exiting."
-		logger -st backup "$msg"
-		echo "<li><pre>Backup $msg</pre>" >> $SERRORL
+		msg="unable to $type mount $host:$save_srcpath, err=$st, exiting."
+		error "$msg"
 	fi
 
 	rmdir $mtddir
@@ -254,11 +287,10 @@ ftp_http_backup() {
 	res=$(su -c "wget -nv -m --no-parent -nH --cut-dirs=$dcnt \
 		-P $destname/mirror $type://$host/${srcpath}/" $runas 2>&1 )
 	st=$?
-	if ! test $st = 0 -o $st = 8; then
+	if ! test $st = 0; then
 		rmdir $destname/mirror $destname
-		msg="ID ${id}: $type://$host/$srcpath failed, err=$st, res:$res"
-		logger -st backup "$msg"
-		echo "<li><pre>Backup $msg</pre>" >> $SERRORL
+		msg="$type://$host/$srcpath failed, err=$st, res:$res"
+		error "$msg"
 		return $st
 	fi
 
@@ -268,9 +300,8 @@ ftp_http_backup() {
 
 rsync_backup() {
 	if ! wakeup; then
-		msg="ID $id: host $host not answering, exiting."
-		logger -st backup "$msg"
-		echo "<li><pre>Backup $msg</pre>" >> $SERRORL
+		msg="host $host not answering, exiting."
+		error "$msg"
 		return 1
 	fi
 
@@ -311,8 +342,7 @@ to host $host. This can't be automated, manual intervention is needed:
 2-Login as user $runas to host $(hostname) and execute the command
 	ssh $host # this will make $(hostname) a trusted host to host $host
 After accepting, you can logout."
-			logger -st backup "ID $id: $msg"
-			echo "<li><pre>Backup ID $id: $msg</pre>" >> $SERRORL
+			error "$msg"
 			echo "$msg" > ${bdir}/../Backup-rsync-ssh.txt
 			chmod a+rw ${bdir}/../Backup-rsync-ssh.txt
 			return 1		
@@ -329,47 +359,77 @@ After accepting, you can logout."
 	return $st
 }
 
-if test "$#" = 0; then
-	logger -st backup "need a backup ID as a argument!"
-	return 1
-fi
+# $1=id
+details() {
+	IFS=";"
+	while read id type runas host mac srcpath dstpath when at log nlogs rest; do
+		if test -z "$id" -o -z "$type" -o -z "$runas" -o -z "$srcpath" -o -z "$dstpath" \
+			-o -z "$when" -o -z "$at" -o -z "$log" -o -z "$nlogs"; then continue; fi
+		if test "${id:0:1}" = "#"; then continue; fi
+		if test "$1" = "$id"; then return 0; fi
+#echo $id $type $runas $host $mac $srcpath $dstpath $when $at $log +$nlogs+ -$rest-
+	done < $CONF_BACKUP 
 
-if ! details "$1"; then
-	logger -st backup "Can't find backup $1 in the configuration file."
 	return 1
-fi
+}
 
-tmp=$(readlink -f $dstpath)
-if ! test -d "$tmp"; then
-	logger -st backup "\"$dstpath\" does not exists or is not a directory"
-	return 1
-fi
+validate() {
+	if test "$#" = 0; then
+		logmsg="Need a backup ID as argument!"
+		return 1
+	fi
 
-while ! mountpoint -q "$tmp"; do
-	tmp=$(dirname "$tmp")
-done
+	if ! details "$1"; then
+		logmsg="Can't find backup ID $1 in configuration file."
+		return 1
+	fi
 
-if test "$tmp" = "/" -o $tmp = "."; then
-	logger -st backup "\"$dstpath\" is not on a mounted filesystem"
-	return 1
+	if ! echo $type | grep -qwE "Dir|NFS|CIFS|FTP|HTTP|rsync"; then
+		logmsg="Type $type not supported."
+		return 1;
+	fi
+	
+	save_srcpath="$srcpath"
+	tmp=$(readlink -f $dstpath)	
+
+	if ! test -d "$tmp"; then
+		logmsg="\"$dstpath\" does not exists or is not a directory."
+		return 1
+	fi
+
+	while ! mountpoint -q "$tmp"; do
+		tmp=$(dirname "$tmp")
+	done
+
+	if test "$tmp" = "/" -o $tmp = "."; then
+		logmsg="\"$dstpath\" is not on a mounted filesystem."
+		return 1
+	fi
+	
+	return 0
+}
+
+. $CONF_M
+	
+if ! validate $*; then
+	echo "$logmsg"
+	exit 1
 fi
 
 exclusive
 
-logger -st backup "Doing backup: id=$id type=$type runas=$runas host=$host srcpath=$srcpath \
- dstpath=$dstpath when=$when at=$at log=$log nlogs=$nlogs"
+exec >> $LOGFILE 2>&1
+echo -e "\nDATE=$(date)"
+
+#trap cleanup EXIT
+
+logger -st backup "Doing backup: id=$id type=$type runas=$runas host=$host srcpath=$srcpath dstpath=$dstpath when=$when at=$at log=$log nlogs=$nlogs"
 
 case $type in
 	Dir) dir_backup ;;
 	NFS|CIFS) cifs_nfs_backup ;;
 	FTP|HTTP) ftp_http_backup ;;
 	rsync) rsync_backup ;;
-	*) logger -st backup "type=$type not yet supported" ;;
 esac
-st=$?
 
-lock
-rm /var/run/backup.pid /tmp/backup-state.$id
-unlock
-
-return $st
+cleanup "Exiting" $?

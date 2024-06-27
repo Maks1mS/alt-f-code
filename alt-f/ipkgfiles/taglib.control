@@ -7,5 +7,5 @@ Description: A library for reading and editing the meta-data of several popular
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://developer.kde.org/~wheeler/taglib.html
+Source: https://developer.kde.org/~wheeler/taglib.html
 Maintainer: jcard

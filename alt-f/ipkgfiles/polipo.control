@@ -5,5 +5,5 @@ Depends: ipkg
 Architecture: arm
 Priority: optional
 Section: networking
-Source: http://www.pps.univ-paris-diderot.fr/~jch/software/polipo/
+Source: https://www.pps.univ-paris-diderot.fr/~jch/software/polipo/
 Maintainer: jcard

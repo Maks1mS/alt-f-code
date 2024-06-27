@@ -5,5 +5,5 @@ Depends: ipkg
 Architecture: arm
 Priority: optional
 Section: upnp-dlna servers
-Source: http://download.twonky.com
+Source: https://download.twonky.com
 Maintainer: jcard

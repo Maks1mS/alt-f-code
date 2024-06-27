@@ -5,5 +5,5 @@ Depends: slang, libglib2, ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.midnight-commander.org
+Source: https://www.midnight-commander.org
 Maintainer: jcard

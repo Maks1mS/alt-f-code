@@ -1,6 +1,10 @@
 
 CONF_MISC=/etc/misc.conf
 CONF_HOSTS=/etc/hosts
+CONF_BAY=/etc/bay
+HTTPD_LOGF=/var/log/httpd.log
+
+. $CONF_MISC
 
 # sed removes any ' or " that would upset quoted assignment
 # awk ensures that 
@@ -8,6 +12,7 @@ CONF_HOSTS=/etc/hosts
 # - special characters are not interpreted by sh
 read_args() {
 	read -r args
+	$HTTPD_LOG && echo $(date +"%F %T") "$REMOTE_ADDR $SCRIPT_NAME $REQUEST_METHOD $QUERY_STRING $args" >> $HTTPD_LOGF
 	eval $(echo -n $args | tr '\r' '\n' | sed -e 's/'"'"'/%27/g;s/"/%22/g' | \
 		awk 'BEGIN{RS="&";FS="="}
 			$1~/^[a-zA-Z][a-zA-Z0-9_]*$/ {
@@ -15,7 +20,7 @@ read_args() {
 
 	# some forms needs key=value evaluated as value=key,
 	# so reverse and evaluate them
-	eval $(echo -n $args |  sed -e 's/'"'"'/%27/g;s/"/%22/g' | \
+	eval $(echo -n $args | sed -e 's/'"'"'/%27/g;s/"/%22/g' | \
 		awk 'BEGIN{RS="&";FS="="}
 			$2~/^[a-zA-Z][a-zA-Z0-9_]*$/ {
 			printf "%s=%c%s%c\n",$2,39,$1,39}' )                
@@ -25,13 +30,44 @@ read_args() {
 # split tok[&tok]*, where tok has form "<key=value>"
 # notice that QUERY_STRING does not has spaces at its end (busybox httpd bug?)
 parse_qstring() {
+	$HTTPD_LOG && echo $(date +"%F %T") "$REMOTE_ADDR $SCRIPT_NAME $REQUEST_METHOD $QUERY_STRING $args" >> $HTTPD_LOGF
 	eval $(echo -n $QUERY_STRING | sed -e 's/'"'"'/%27/g;s/"/%22/g' |
-		awk 'BEGIN{RS="?";FS="="} $1~/^[a-zA-Z][a-zA-Z0-9_]*$/ {
+		awk 'BEGIN{RS="&";FS="="} $1~/^[a-zA-Z][a-zA-Z0-9_]*$/ {
 			printf "%s=%c%s%c\n",$1,39,substr($0,index($0,$2)),39}')
+}
+
+# rc<service>
+service_restart() {
+	if $1 status >& /dev/null; then
+		action="restart"
+	else
+		action="start"
+	fi
+	if ! res=$($1 $action 2>&1); then msg "$res"; fi
 }
 
 isnumber() {
 	echo "$1" | grep -qE '^[0-9.]+$'
+}
+
+isint() {
+	echo "$1" | grep -qE '^[0-9]+$'
+}
+
+isport() {
+	local port lmsg="Port must be a number between 1 and 65535"
+	port=$(httpd -d "$1")
+
+	if ! isint "$port"; then
+		echo "$lmsg" 
+		return 1
+	fi
+	if test "$port" -le 0 -o "$port" -gt 65535; then
+		echo "$lmsg"
+		return 1
+	fi
+
+	echo $port
 }
 
 # Celsius to Fahrenheit 
@@ -45,6 +81,7 @@ fartocel() {
 }
 
 checkpass() {
+	local lpass
 	lpass=$(httpd -d "$1")
 	if test -n "$lpass"; then
 		if test -n "$(echo \"$lpass\" | tr -d [!-~])"; then
@@ -69,13 +106,7 @@ check_https() {
 }
 
 checkip() {
-	echo $* | awk '{ nf = split($0, a, ".")
-		if (nf < 4) exit 1
-		for (i=1; i<=nf; i++) {
-			if (a[i] < 0 || a[i] > 255) exit 1
-		}
-		exit 0
-	}'
+	ipcalc -bs $* >& /dev/null
 }
 
 gethname() {
@@ -84,7 +115,7 @@ gethname() {
         echo $1
     elif ! th=$(awk '/^'$1'[[:space:]]+/{print $3; exit 1}' $CONF_HOSTS); then
         echo $th
-    elif ! th=$(nslookup $1 | awk '/Address.*'$1'/{if (length($4) != 0) {print $4; exit 1}}'); then  
+    elif ! th=$(nslookup $1 | awk '/Address.*'$1' /{if (length($4) != 0) {print $4; exit 1}}'); then  
         echo $th
     else
         echo $1
@@ -92,18 +123,23 @@ gethname() {
 }
 
 checkmac() {
-	echo "$1" | grep -q -e '^\([a-fA-F0-9]\{2\}:\)\{5\}[a-fA-F0-9]\{2\}$'
+	#echo "$1" | grep -q -e '^\([a-fA-F0-9]\{2\}:\)\{5\}[a-fA-F0-9]\{2\}$'
+	echo "$1" | grep -qE '[[:xdigit:]]{2}(:[[:xdigit:]]{2}){5}'
 }
 
 checkport() {
-	netstat -ltn 2> /dev/null | grep -q ":$1[[:space:]]"
+	local a=$(netstat -ltnp 2> /dev/null | sed -n 's|.*:'$1'[[:space:]].*/\(.*\)$|\1|p')
+	if test -z "$a"; then return 0; fi
+	echo "Port $1 currently in use by $a"
+	return 1
 }
 
 checkname() {
-	echo "$1" | grep -v -q -e '^[^a-zA-Z]' -e '[^a-zA-Z0-9-].*'
+	echo "$*" | grep -v -q -e '^[^a-zA-Z]' -e '[^a-zA-Z0-9-].*'
 }
 
 find_mp() {
+	local tmp
 	if ! test -d "$1"; then return 1; fi
 	tmp=$(readlink -f "$1")
 	while ! mountpoint -q "$tmp"; do
@@ -113,6 +149,7 @@ find_mp() {
 }
 
 check_folder() {
+	local tmp
 	if ! tmp=$(find_mp "$1"); then
 		echo "\"$1\" does not exists or is not a folder."
 		return 1
@@ -133,6 +170,10 @@ eatspaces() {
 	echo "$*" | tr -d ' \t'
 }
 
+trimspaces() {
+	echo "$*" | sed -n -e 's/^[[:blank:]]*//' -e 's/[[:blank:]]*$//p'
+}
+
 # mainly for fstab usage, where spaces are '\040' coded
 path_escape() {
 	echo "$1" | sed 's/ /\\040/g'
@@ -150,6 +191,7 @@ path_unescape() {
 # s/%/\&#x25;/g
 # s/;/&#x3b;/g
 
+# why not use 'httpd -e'? need hex and not dec encoding?
 http_encode() {
 echo "$1" | sed "
 s/\&/\&#x26;/g
@@ -189,6 +231,7 @@ url_encode() {
 }
 
 has_disks() {
+	# global disks ndisks
 	disks=$(ls /dev/sd?) >/dev/null 2>&1
 	ndisks=$(echo "$disks" | grep /dev/ | wc -l)
 	if test -z "$disks"; then
@@ -200,7 +243,8 @@ has_disks() {
 
 # $1=sda
 disk_details() {
-	. /etc/bay
+	# global cbay dcap dfam dmod
+	. $CONF_BAY
 	dbay=$(eval echo \$$1)
 	dcap="$(eval echo \$${dbay}_cap)"
 	dfam="$(eval echo \$${dbay}_fam)"
@@ -221,6 +265,7 @@ disk_power() {
 
 # $1=part (sda2, eg)
 isdirty() {
+	local res
 	res="$(tune2fs -l /dev/$1 2> /dev/null)"
 	if test $? != 0; then return 1; fi
 	if test $(echo "$res" | awk '
@@ -242,20 +287,22 @@ find_dm() {
 
 # $1=sda global: ln 
 fs_progress() {
+	# global ln
+	local part
 	part=$1
 	ln=""
-	for k in check fix format convert shrink enlarg wip; do
+	for k in wait check fix format convert shrink enlarg wip; do
 		if test -f /tmp/${k}-${part}; then
 			if kill -0 $(cat /tmp/${k}-${part}.pid) 2> /dev/null; then
 				if test -s /tmp/${k}-${part}.log; then
 					ln=$(cat /tmp/${k}-${part}.log | tr -s '\b\r\001\002' '\n' | tail -n1)
 				fi
 				if test $k = "check" -o $k = "fix"; then
-					ln=$(echo $ln | awk '{ $3 += 0; if ($3 != 0 && $3 > $2) printf "step %d: %d%%", $1, $2*100/$3}')
+					ln=$(echo $ln | awk '{ $3 += 0; if ($3 != 0 && $3 > $2) printf "step %d/5: %d%%", $1, $2*100/$3}')
 				elif test $k = "format"; then
 					ln=$(echo $ln | awk -F/ '/.*\/.*/{ $2 += 0; if ($2 != 0 && $2 > $1) printf "%d%%", $1*100/$2}')
 				elif test $k = "shrink" -o $k = "enlarg"; then
-					if grep -q resize2fs  /tmp/${k}-${part}.log 2> /dev/null; then
+					if grep -q resize2fs /tmp/${k}-${part}.log 2> /dev/null; then
 						ln=$(echo $ln | grep -o X)
 						if test -n "$ln"; then
 							step=$(tail -2 /tmp/${k}-${part}.log | head -1 | sed -n 's/Begin pass \([[:digit:]]\).*/\1/p')
@@ -279,6 +326,8 @@ fs_progress() {
 }
 
 firstboot() {
+	# global firstmsg
+	local pg pgp currst currpg next
 	if ! test -f /tmp/firstboot; then return; fi
 
 	pg=${0%.cgi}
@@ -366,11 +415,13 @@ enddebug() {
 }
 
 msg() {
+	local txt
 	txt=$(echo "$1" | sed 's|"|\\"|g' | awk '{printf "%s\\n", $0}')
 
 	html_header
 	echo "<script type=text/javascript>
 	alert(\"$txt\")
+	document.body.style.cursor = '';
 	window.location.assign(document.referrer)
 	</script>
 	</body></html>"
@@ -388,6 +439,7 @@ goto_button() {
 
 # $1=pre-select part (eg: sda4) $2=name postfix, e.g. '1', optional
 select_part() {
+	local presel
 	if test -n "$1"; then presel=$1; fi
 
 	echo "<select name=part$2>"
@@ -395,31 +447,111 @@ select_part() {
 
 	df -h | while read ln; do
 		part=""
-		eval $(echo $ln | awk '/^\/dev\/(sd|md)/{printf "part=%s; pcap=%s; avai=%s", \
-			$1, $2, $4}')
+		eval $(echo $ln | awk '/^\/dev\/(sd|md|dm-)/{printf "part=%s; pcap=%s; avai=%s mp=%s", \
+			$1, $2, $4, $6}')
 		if test -z $part; then continue; fi
 		part=$(basename $part)
 		partl=$(plabel $part)
+		if test -z "$partl"; then partl=$(basename $mp); fi
 		partb=$(sed -n "s/${part%[0-9]}=\(.*\)/, \1 disk/p" /etc/bay)
-		if test -z "$partl"; then partl=$part; fi
 		sel=""; if test "$presel" = "$part"; then sel="selected"; fi		
-		echo "<option $sel value=$part> $partl ($part, ${pcap}B, ${avai}B free${partb})</option>"
+		echo "<option $sel value=$part> $partl (${pcap}B, ${avai}B free${partb})</option>"
 	done
 	echo "</select>"
 }
 
+upload_file_inner() {
+	local s e of files scmd lcnt ln flen fname_ret oumask=$(umask)
+	umask 077
+
+	# split transfer into several temp files
+	while test "$#" -gt 1; do
+		s=$(($1+1)) # skip only boundary
+		e=$(($2-1))
+		#echo $s-$e
+		shift
+		of=$(mktemp)
+		files="$files $of"
+		scmd="$scmd -e '$s,$e {w $of
+}'"
+	done
+
+	# stupid thing, eval has to be used!
+	eval sed -n "$scmd" $xxupfile
+	rm $xxupfile
+	
+	# remove HTTP headers from each file, give them the expected name,
+	# define var=value for text forms
+	for i in $files; do
+		lncnt=0;
+		while read -r ln; do
+			ln=$(echo "$ln"|dos2unix) # strip CR/LF HTTP EOL
+			
+			if echo $ln | grep -q "^Content-Disposition: "; then
+				name=""; filename=""; nofn=""
+				eval ${ln#*;}
+				if echo $ln | grep -qv filename=; then nofn=1; fi
+				#echo name="$name" filename="$filename no_filename=$nofn"
+			elif test -z "$ln"; then # msg body. Ignore possible Content-Type
+				if test -n "$name"; then
+					cat > /tmp/$name
+					rm $i
+					#strip file last CR/LF, sed '$d', will delete whole last line
+					flen=$(stat -c %s /tmp/$name)
+					dd if=/tmp/$name of=/tmp/$name bs=1 seek=$((flen - 2)) count=0 >& /dev/null
+					# if it is a text form, define a variable with it
+					if test -n "$nofn"; then
+						eval $name='$(cat /tmp/$name)'
+						#echo "-------->$name: $(eval echo \"\$$name\")"
+						fname_ret="$fname_ret $name='$(eval echo \"\$$name\")'"
+						rm /tmp/$name
+					else
+						fname_ret="$fname_ret $name='/tmp/$name'"
+					fi
+					break
+				fi
+			fi
+			if test $((++lncnt)) -gt 20; then
+				cat > /dev/null # discard transfer
+				rm -f $files
+				echo "upload_file_inner:  sync lost?"
+				return 1
+			fi
+		done < $i
+	done
+	umask $oumask
+	echo "$fname_ret"
+}
+
+# to use on enctype=multipart/data forms.
+# uploads every form elements as files and returns
+# file1=name1, file2=name2, var1=value1, var2=value1,...
+# files or variables might be empty
+# variables are used when filename= does not appears in Content-Disposition
+# for files, the filename= value is ignored, files are saved with name as name=
+# Content-type is ignored
+#
 upload_file() {
 # POST upload format:
 # -----------------------------29995809218093749221856446032^M
 # Content-Disposition: form-data; name="file1"; filename="..."^M
-# Content-Type: application/octet-stream^M
+# Content-Type: application/octet-stream^M <-- optional
 # ^M    <--------- headers end with empty line
 # file contents
 # file contents
 # file contents
 # ^M    <--------- extra empty line
 # -----------------------------29995809218093749221856446032--^M
+#
+# CONTENT_TYPE and CONTENT_LENGTH are in cgi environment
 
+	local reqm xxupfile lines
+	if ! echo "$CONTENT_TYPE" | grep -q multipart/form-data; then
+			cat > /dev/null # discard transfer
+			echo "No Content_type: multipart/form-data on response."
+			return 1
+	fi
+	
 	eval $(df -m /tmp | awk '/tmpfs/{printf "totalm=%d; freem=%d;", $2, $4}')
 	reqm=$((CONTENT_LENGTH * 2 / 1024 / 1024))
 	if test "$reqm" -gt "$freem"; then
@@ -430,60 +562,32 @@ upload_file() {
 		fi
 	fi
 
-	read -r delim_line
-	read -r Content_Disposition
-	read -r Content_Type
-	read -r empty_line
-
-	if ! ( echo "$CONTENT_TYPE" | grep -q multipart/form-data && 
-		echo "$Content_Disposition" | grep -q form-data ); then
-			cat > /dev/null # discard transfer
-			echo "Not a (simple) POST response."
-			return 1
-	fi
-
-	fname1=$(echo $Content_Disposition | sed -n 's/.*[[:space:]]name="\(.*\)";.*/\1/p')
-	hfname1=$(echo $Content_Disposition | sed -n 's/.*[[:space:]]filename="\(.*\)".*/\1/p')
-	if test -z "$hfname1"; then
-		cat > /dev/null # discard transfer
-		echo "Not a valid Content_Disposition POST response."
-		return 1
-	fi
-
-	fname1=/tmp/$fname1
-	cat > $fname1
-
-	# get next file name
-	fname2=$(sed -n '/^Content-Disposition:/s/.*[[:space:]]name="\(.*\)";.*/\1/p' $fname1)
-	hfname2=$(sed -n '/^Content-Disposition:/s/.*[[:space:]]filename="\(.*\)".*/\1/p' $fname1)
-
-	if test -n "$hfname2"; then
-		fname2=/tmp/$fname2
-		sed -n '/'$delim_line'/,$p' $fname1 > $fname2
-
-		# remove delim-line, cont-disp, cont-type, empty line, last empty line
-		sed -i '1,4d' $fname2
-		sed -i '$d' $fname2
-		sed -i '$d' $fname2
-	fi
-
-	# remove fname2 from fname1 end (\r\n empty lines)
-	sed -i '/'$delim_line'/,$d' $fname1
-	#sed -i '$d' $fname1 # buggy busybox sed when last chars are '00 00  ff ff'
-	flen=$(stat -t $fname1 | cut -d" " -f2)
-	dd if=$fname1 of=$fname1 bs=1 seek=$((flen - 2)) count=0 >& /dev/null
-	echo $fname1
+	xxupfile=$(mktemp)
+	cat > $xxupfile
+	
+	eval echo $CONTENT_TYPE >& /dev/null
+	lines=$(grep -n -- $boundary $xxupfile | cut -d: -f1)
+	
+	upload_file_inner $lines
 }
 
+# $1-filename, $2-optional suggested filename
 download_file() {
+	local filename
+	if test -n "$2"; then
+		filename="$2"
+	else
+		filename="$(basename $1)"
+	fi
 	echo -e "HTTP/1.1 200 OK\r"
-	echo -e "Content-Disposition: attachment; filename=\"$(basename $1)\"\r"
+	echo -e "Content-Disposition: attachment; filename=\"$filename\"\r"
 	echo -e "Content-Type: application/octet-stream\r\n\r"
 	cat $1
 }
 
 # from_url location
 gotoback() {
+	local from_url
 	from_url=$(httpd -d "$1")
 	if echo "$from_url" | grep -q index.cgi; then
 		gotopage /cgi-bin/$2
@@ -508,6 +612,7 @@ js_gotopage() {
 	cat<<-EOF
 		<script type="text/javascript">
 			window.location.assign("$1")
+			document.body.style.cursor = '';
 		</script>
 		</body></html>
 	EOF
@@ -523,7 +628,7 @@ check_cookie() {
 					touch /tmp/cookie
 					return
 				else
-					logger -t httpd "Unautorized access attempted with cookie \"${ALTFID}\""
+					logger -t httpd "Unautorized access from $REMOTE_ADDR with cookie \"${ALTFID}\""
 				fi
 			fi
 		fi
@@ -558,6 +663,7 @@ busy_cursor_end() {
 
 # wait_count $1=msg
 wait_count_start() {
+	local tmp_id tid
 	tmp_id=$(mktemp -t)
 	tid=$(basename $tmp_id)
 	cat<<-EOF
@@ -606,7 +712,7 @@ embed_page() {
 # if $2 is not present $1 is displayed for the text. Normally $2 is used when graphing data
 # that has a range other than 1-100. Since this graph uses a div it doesn't display inline
 drawbargraph() {
-
+	local linewidth text yellow red bgcolor fgcolor
 	linewidth="$1"
 	if test "$linewidth" -gt 100; then
 		linewidth="100"
@@ -641,7 +747,7 @@ mktt() {
 	echo "<div id=\"$1\" class=\"ttip\">$2</div>"
 }
 
-# usage: mktt tt_id "tooltip message"
+# usage: ttip tt_id
 # <input ... $(ttip tt_id)>
 ttip() {
 	echo "onmouseover=\"popUp(event,'$1')\" onmouseout=\"popDown('$1')\""
@@ -669,7 +775,7 @@ menu_setup() {
 }
 
 load_thm() {
-	SCRIPTS=/scripts
+	local SCRIPTS=/scripts
 	if test -f /usr/www/$SCRIPTS/$1; then
 		while read ln; do
 			if echo $ln | grep -q .js; then
@@ -685,6 +791,7 @@ load_thm() {
 
 # args: title [onload action]
 write_header() {
+	local hf hlp
 	firstboot
 	HTML_HEADER_DONE="yes"
 
@@ -713,8 +820,6 @@ write_header() {
 	if test -f /usr/www/$hf; then
 		hlp="<a href=\"../$hf\" $(ttip tt_help)><img src=\"../help.png\" alt=\"help\" border=0></a>"
 	fi
-
-	if test -s "$CONF_MISC"; then . $CONF_MISC; fi
 
 	cat<<-EOF
 		<title>$1</title>

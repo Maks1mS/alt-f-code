@@ -6,5 +6,5 @@ Depends: ipkg, libxml2
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.w3.org/TR/xslt
+Source: https://www.w3.org/TR/xslt
 Maintainer: jcard

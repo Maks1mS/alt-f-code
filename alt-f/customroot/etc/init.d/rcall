@@ -2,9 +2,10 @@
 
 case "$1" in
 	start)
-		for i in $(ls /etc/init.d/S*) ;do
-			if ! test -x "$i"; then continue; fi
-			logger -s "$($i start)"
+		for i in $(ls /etc/init.d/S*); do
+			if test -x "$i"; then
+				logger -s "$($i start)"
+			fi
 		done
 		;;
 
@@ -12,9 +13,9 @@ case "$1" in
 		for i in $(ls -r /etc/init.d/S*) ;do
 			bn=$(basename $i); nm=rc${bn:3}
 			# don't allow inetd, stunnel or httpd to be stopped, or webUI will stop working
-			if test "$nm" = "rcsysctrl" -o "$nm" = "rcinetd" -o "$nm" = "rcstunnel" -o "$nm" = "rchttp"; then continue; fi
+			if test "$nm" = "rcinetd" -o "$nm" = "rcstunnel" -o "$nm" = "rchttp"; then continue; fi
 			if $nm status >& /dev/null; then
-				logger -s $($nm stop)
+				logger -s "$($nm stop)"
 			fi
 		done
 		;;
@@ -40,9 +41,18 @@ case "$1" in
 			logger -s "$($nm status)"
 		done
 		;;
+		
+	init)
+		for i in /etc/init.d/S??*; do
+			f=$(basename $i)
+			if grep -q 'sinit()' $i; then
+				logger -s "$(rc${f#S??} init)"
+			fi
+		done
+		;;
 
 	*)
-		echo "Usage: $0 {start|stop|restart|status}" >&2
+		echo "Usage: $0 {start|stop|restart|status|init}" >&2
 		exit 1
 		;;
 esac

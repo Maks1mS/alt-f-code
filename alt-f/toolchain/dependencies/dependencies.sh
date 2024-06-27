@@ -323,6 +323,18 @@ echo "python installed:				Ok"
 
 #############################################################
 #
+# check build system 'rpcgen'
+#
+#############################################################
+if ! which rpcgen > /dev/null ; then
+	echo "rpcgen installed:		    FALSE"
+	/bin/echo -e "\n\nYou must install 'rpcgen' on your build machine\n";
+	exit 1;
+fi;
+echo "rpcgen installed:				Ok"
+
+#############################################################
+#
 # All done
 #
 #############################################################

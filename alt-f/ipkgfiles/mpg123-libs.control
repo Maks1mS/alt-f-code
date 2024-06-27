@@ -5,5 +5,5 @@ Depends: alsa-lib, ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.mpg123.de/
+Source: https://www.mpg123.de/
 Maintainer: jcard

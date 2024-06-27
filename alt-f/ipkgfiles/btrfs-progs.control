@@ -5,5 +5,5 @@ Depends: kernel-modules, zlib, lzo, e2fsprogs, attr, acl, ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://btrfs.wiki.kernel.org
+Source: https://btrfs.wiki.kernel.org
 Maintainer: jcard

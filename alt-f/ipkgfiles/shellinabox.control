@@ -1,6 +1,6 @@
 Package: shellinabox
 Description: a web based terminal emulator server
-Version: 2.20
+Version: 2.21
 Depends: ipkg
 Architecture: arm
 Priority: optional

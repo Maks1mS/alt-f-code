@@ -299,7 +299,7 @@ partition table to the GPT format.\n\Adjustments might be necessary afterwards.\
 	}
 
 	function reopen(dsk) {
-		url=window.location + "?disk=" + dsk;
+		url=window.location.pathname + "?disk=" + dsk;
 		window.location.assign(url)
 	}
 

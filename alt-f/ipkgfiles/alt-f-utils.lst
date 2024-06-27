@@ -1,5 +1,4 @@
 ./etc/init.d/S21sysctrl
-./usr/sbin/rpcinfo
 ./usr/sbin/sysctrl
 ./usr/sbin/dns320l-daemon
 ./usr/sbin/dns323-fw

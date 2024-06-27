@@ -32,7 +32,6 @@ LIBXML2_CONF_OPT += $(DISABLE_IPV6)
 endif
 
 $(eval $(call AUTOTARGETS,package,libxml2))
-
 $(eval $(call AUTOTARGETS_HOST,package,libxml2))
 
 $(LIBXML2_HOOK_POST_INSTALL):

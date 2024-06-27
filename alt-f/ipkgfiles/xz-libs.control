@@ -5,5 +5,5 @@ Depends: ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://tukaani.org/xz/
+Source: https://tukaani.org/xz/
 Maintainer: jcard

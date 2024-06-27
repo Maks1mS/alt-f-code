@@ -5,5 +5,5 @@ Depends: ncurses, ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://code.google.com/p/alt-f/
+Source: https://code.google.com/p/alt-f/
 Maintainer: jcard

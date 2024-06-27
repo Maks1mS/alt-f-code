@@ -5,5 +5,5 @@ Description: Program to identify a file's format by scanning binary data for kno
 Architecture: arm
 Priority: optional
 Section: admin
-Source: ftp://ftp.astron.com/pub/file/
+Source: https://astron.com/pub/file
 Maintainer: jcard

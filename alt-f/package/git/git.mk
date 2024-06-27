@@ -4,12 +4,13 @@
 #
 #############################################################
 
-GIT_VERSION = 2.4.2
+GIT_VERSION = 2.9.5
+#GIT_VERSION = 2.4.2
 #GIT_VERSION = 2.1.2
 GIT_SOURCE = git-$(GIT_VERSION).tar.xz
 GIT_SITE = https://www.kernel.org/pub/software/scm/git
 
-GIT_DEPENDENCIES = uclibc openssl libcurl expat pcre perl-host
+GIT_DEPENDENCIES = uclibc gettext openssl libcurl expat pcre perl-host
 
 GIT_CONF_ENV = ac_cv_fread_reads_directories=yes \
 	ac_cv_snprintf_returns_bogus=yes 
@@ -17,7 +18,7 @@ GIT_CONF_ENV = ac_cv_fread_reads_directories=yes \
 GIT_CONF_OPT = --without-python --without-tcltk \
 	-with-libpcre -with-expat --with-curl --with-openssl --with-perl=$(HOST_DIR)/usr/bin/perl
 
-GIT_MAKE_OPT = CHARSET_LIB=-lcharset
+GIT_MAKE_OPT = CHARSET_LIB="-lcharset -lintl"
 
 GIT_INSTALL_TARGET_OPT = DESTDIR=$(TARGET_DIR) install
 

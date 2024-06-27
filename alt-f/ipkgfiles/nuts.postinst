@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/sh
 
 addgroup -S -g 84 nut
 if id ups >& /dev/null; then

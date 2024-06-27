@@ -5,5 +5,5 @@ Version: 5.9
 Architecture: arm
 Priority: optional
 Section: libraries
-Source: http://www.gnu.org/software/ncurses/
+Source: https://www.gnu.org/software/ncurses/
 Maintainer: jcard

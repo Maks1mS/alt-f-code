@@ -1,9 +1,8 @@
 #!/bin/sh
 
 SITE=https://github.com/RuudBurger/CouchPotatoServer/tarball
-TBALL=master
-
 CBPROG=/Alt-F/opt/CouchPotato2
+TBALL=master
 
 if ! wget --progress=dot:mega -O /tmp/$TBALL $SITE/$TBALL; then
 	rm -f /tmp/$TBALL
@@ -19,8 +18,14 @@ if ! tar -C /Alt-F/opt -xzf /tmp/$TBALL >& /dev/null; then
 fi
 rm -f /tmp/$TBALL
 
-( cd /opt/*-CouchPotatoServer-*; cp -a  . $CBPROG )
-rm -rf /Alt-F/opt/*-CouchPotatoServer-*
+( cd /opt/CouchPotato-CouchPotatoServer-*; cp -a  . $CBPROG )
+rm -rf /Alt-F/opt/CouchPotato-CouchPotatoServer-*
+
+echo "pip installing pyopenssl..."
+pip install pyopenssl
+
+echo "Python byte compiling..."
+python -m compileall /opt/CouchPotato2 >& /dev/null
 
 ln -sf /usr/sbin/rcscript /sbin/rccouchpotato2
 rccouchpotato2 status

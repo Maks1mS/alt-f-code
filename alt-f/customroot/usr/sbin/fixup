@@ -30,7 +30,7 @@ create_dirs() {
 # remove aufs shadowed files under /Alt-F.
 rm_fixes() {
 	aufs.sh -n
-	for i in $(find /rootmnt/ro /rootmnt/sqimage -type f 2> /dev/null | sed "s|^/rootmnt/[^/]*/||"); do
+	for i in $(find /rootmnt/ro /rootmnt/sqimage /rootmnt/ubiimage -type f 2> /dev/null | sed "s|^/rootmnt/[^/]*/||"); do
 		# it exists under /Alt-F, is not a conf file nor a file from a disk-installed package
 		if test -f /Alt-F/$i && ! grep -q $i /etc/settings /usr/lib/ipkg/info/*.list; then
 			rm -f /Alt-F/$i
@@ -136,7 +136,7 @@ CONFM=/etc/misc.conf
 . $CONFM 
 
 if test -z "$FIXSITE"; then # FIXME: to remove after RC4
-	FIXSITE=http://sourceforge.net/projects/alt-f/files/fixes
+	FIXSITE=https://sourceforge.net/projects/alt-f/files/fixes
 	echo FIXSITE=$FIXSITE >> $CONFM
 fi
 

@@ -1,6 +1,6 @@
 Package: libsodium
 Depends: ipkg
-Version: 1.0.15
+Version: 1.0.18
 Description: library for encryption, decryption, signatures, password hashing and more
 Architecture: arm
 Priority: optional

@@ -104,7 +104,7 @@ if test -x /usr/bin/btrfs; then
 fi
 
 blk=$(blkid -s LABEL -s TYPE)
-
+dfh=$(df -h)
 ppart=$(cat /proc/partitions)
 i=1
 for j in $(ls /dev/sd[a-z]* /dev/md[0-9]* /dev/dm-[0-9]* 2> /dev/null); do
@@ -115,7 +115,6 @@ for j in $(ls /dev/sd[a-z]* /dev/md[0-9]* /dev/dm-[0-9]* 2> /dev/null); do
 		if ! test -f /sys/block/$part/md/array_state; then continue; fi
 		if test "$(cat /sys/block/$part/md/array_state)" = "inactive"; then continue; fi
 	elif test ${part:0:3} = "dm-"; then # device mapper, LVM or dm-crypt
-		# show LV name?
 		dname=$(cat /sys/block/$part/dm/name)
 		# don't show internal LVM devices for mirror, snapshot, etc volumes
 		if echo $dname | grep -qE '_mlog|_mimage|-real|-cow|-pvmove|-missing_'; then continue; fi
@@ -139,7 +138,8 @@ for j in $(ls /dev/sd[a-z]* /dev/md[0-9]* /dev/dm-[0-9]* 2> /dev/null); do
 	fi
 
 	if find /sys/block/md*/slaves/$part >& /dev/null ; then continue; fi
-
+	if find /sys/block/dm-*/slaves/$part >& /dev/null ; then continue; fi
+	
 	otype=$TYPE
 
 	mount_opts=""
@@ -179,7 +179,7 @@ for j in $(ls /dev/sd[a-z]* /dev/md[0-9]* /dev/dm-[0-9]* 2> /dev/null); do
 	mtdf=""
 	if ismount $part; then
 		# only works for mounted partitions
-		pcap=$(df -h /dev/$part | awk '/'$part'/{printf "%sB", $2}')
+		pcap=$(echo "$dfh" | awk '/'$part'/{printf "%sB", $2}')
 		mtd="<option value=unMount>Unmount</option>"
 		mtdf="*"
 	else
@@ -238,23 +238,17 @@ done
 
 CONFT=/etc/misc.conf
 
-if test -f $CONFT; then
-	. $CONFT
-fi
-if test -z "$TUNE_MOUNTS"; then
-	TUNE_MOUNTS=50
-fi
-if test -z "$TUNE_DAYS"; then
-	TUNE_DAYS=180
-fi
+if test -f $CONFT; then . $CONFT; fi
+if test -z "$TUNE_MOUNTS"; then TUNE_MOUNTS=50; fi
+if test -z "$TUNE_DAYS"; then TUNE_DAYS=180; fi
 
 cat<<-EOF
 	</table></fieldset>
 
 	<fieldset><legend>Set mounted filesystems to be checked every</legend>
-	<input type=text size=4 name=TUNE_MOUNTS value="$TUNE_MOUNTS"> mounts
-	or every <input type=text size=4 name=TUNE_DAYS value="$TUNE_DAYS"> days
-	<input type=submit name=tune value=Submit>
+	<input type=text size=4 name=tune_mounts value="$TUNE_MOUNTS"> mounts
+	or every <input type=text size=4 name=tune_days value="$TUNE_DAYS"> days
+	<input type=submit name=tune value=Submit> (set anyone to zero to disable it)
 	</fieldset>
 	</form></body></html>
 EOF

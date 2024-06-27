@@ -9,6 +9,29 @@ ICU_MAJOR=4.8
 ICU_SOURCE:=icu$(ICU_VERSION)-src.tgz
 ICU_SITE:=$(BR2_SOURCEFORGE_MIRROR)/project/icu/ICU4C/$(ICU_MAJOR)
 
+ICU_SUBDIR:=source
+ICU_HOST_SUBDIR:=source
+
+ICU_LIBTOOL_PATCH = NO
+ICU_INSTALL_STAGING = YES
+ICU_INSTALL_TARGET_OPT = DESTDIR=$(TARGET_DIR) install
+
+ICU_CONF_OPT = --disable-layout \
+		--disable-samples \
+		--disable-extras \
+		--disable-tests \
+		--with-cross-build=$(ICU_HOST_DIR)/$(ICU_HOST_SUBDIR)
+
+ICU_DEPENDENCIES = icu-host
+
+$(eval $(call AUTOTARGETS,package,icu))
+$(eval $(call AUTOTARGETS_HOST,package,icu))
+
+$(ICU_HOOK_POST_INSTALL):
+	$(SED) "s,^default_prefix=.*,default_prefix=\'$(STAGING_DIR)/usr\',g" $(STAGING_DIR)/usr/bin/icu-config
+
+ifeq (y,n)
+
 ICU_CAT:=$(ZCAT)
 ICU_DIR:=$(BUILD_DIR)/icu/source
 ICU_HOST_DIR:=$(BUILD_DIR)/icu-host/source
@@ -85,4 +108,6 @@ icu-dirclean:
 #############################################################
 ifeq ($(BR2_PACKAGE_ICU),y)
 TARGETS+=icu
+endif
+
 endif

@@ -5,5 +5,5 @@ Depends: readline, ipkg
 Architecture: arm
 Priority: optional
 Section: libraries
-Source: http://www.sqlite.org/
+Source: https://www.sqlite.org
 Maintainer: jcard

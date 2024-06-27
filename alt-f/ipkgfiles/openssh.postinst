@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/sh
 
 update-alternatives --install /usr/bin/scp scp /usr/bin/scp-openssh 20
 update-alternatives --install /usr/bin/ssh ssh /usr/bin/ssh-openssh 20

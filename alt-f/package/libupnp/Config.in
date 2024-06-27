@@ -6,4 +6,4 @@ config BR2_PACKAGE_LIBUPNP
 	  devices, and bridges that are compliant with Version 1.0 of the
 	  Universal Plug and Play Device Architecture Specification
 
-	  http://pupnp.sourceforge.net/
+	  https://pupnp.sourceforge.io

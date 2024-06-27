@@ -4,7 +4,7 @@ Version: 0.1.11
 Depends: ipkg
 Architecture: arm
 Priority: required
-Section: admin
-Source: http://sourceforge.net/projects/alt-f
-Maintainer: jcard
 Essential: yes
+Section: admin
+Source: https://sourceforge.net/projects/alt-f
+Maintainer: jcard

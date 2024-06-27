@@ -17,4 +17,6 @@ $(eval $(call AUTOTARGETS,package,libusb))
 
 $(LIBUSB_HOOK_POST_INSTALL):
 	rm -f $(TARGET_DIR)/usr/bin/libusb-config
+	$(SED) 's|^prefix=.*|prefix=$(STAGING_DIR)/usr|' \
+		-e 's|-L/usr/lib|-L$(STAGING_DIR)/usr/lib|' $(STAGING_DIR)/usr/bin/libusb-config
 	touch $@

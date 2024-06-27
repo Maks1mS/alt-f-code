@@ -5,5 +5,5 @@ Description: A library for parsing, editing, and saving EXIF data.
 Architecture: arm
 Priority: optional
 Section: libraries
-Source: http://libexif.sourceforge.net/
+Source: https://libexif.sourceforge.net/
 Maintainer: jcard

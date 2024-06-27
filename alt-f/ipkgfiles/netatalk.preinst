@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/sh
 
 if $(ipkg status netatalk2 | grep -q installed); then
 

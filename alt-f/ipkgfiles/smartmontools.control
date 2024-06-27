@@ -3,7 +3,7 @@ Description: Control and monitor storage systems using S.M.A.R.T.
 Version: 6.6
 Depends: ipkg
 Architecture: arm
-Priority: optional
+Priority: required
 Section: admin
-Source: http://smartmontools.sourceforge.net/
+Source: https://smartmontools.org
 Maintainer: jcard

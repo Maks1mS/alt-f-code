@@ -6,9 +6,10 @@ check_cookie
 
 #debug
 
+# WARNING: the sh 'let'/'$((' range is limited to +/-2TB, a signed 32 bits int, use 'expr' !
+
 MIN_SIZE=20000 # minimum size of a partition or filesystem, in 512 bytes sectors (10MB)
-TWOTB=4294967296 # 2.2TB
-# FIXME: the sh 'let'/'$((' range is limited to +/-2TB, a signed 32 bits int, use 'expr' !
+TWOTB=4294967296 # 2.2TB in 512B sectors
 
 # $1=error message
 err() {
@@ -93,20 +94,17 @@ mbr_partition() {
 	i=$1
 
 	ptype="83"
+	smul=1
 	if test "$2" = "raid"; then
 		ptype="da"
+		smul=2 # for raid, duplicate swap
 	fi
 
 	echo "<p>MBR partitioning disk $(basename $i)..."
 
 	clean_traces $i
 
-if true; then
-	eval $(sfdisk -l -uS $i | tr '*' ' ' | awk '
-		/cylinders/ {printf "maxsect=%.0f;", $3 * $5 * $7}')
-else
-	maxsect=$(cat /sys/block/$(basename $i)/size)
-fi
+	maxsect=$(expr $(cat /sys/block/$(basename $i)/size) - 2048)
 
 	if test "$maxsect" -ge $TWOTB; then
 		maxsect=$TWOTB
@@ -119,7 +117,7 @@ fi
 	fi
 
 	pos=64 # 4k aligned
-	nsect=1048576 # 512MB for swap
+	nsect=$(expr 1048576 \* $smul) # 512MB for swap
 	nsect=$(align $pos $nsect $maxsect)
 
 	pos2=$(expr $pos + $nsect)
@@ -176,8 +174,11 @@ gpt_partition() {
 	clean_traces $i
 	sgdisk --zap-all $i >& /dev/null
 
-	swaps=$(sgdisk -p $i | awk '/last usable/ {printf "%d", $10/'$TWOTB'*512}') # 512M per 2TB
+	swaps=$(sgdisk -p $i | awk '/last usable/ {printf "%d", $10/'$TWOTB'*512}') # 1GB per 2TB
 	if test "$swaps" -lt 512; then swaps=512; fi
+	if test "$2" = "raid"; then # for raid, duplicate swap
+		swaps=$(expr $swaps \* 2)
+	fi
 
 	res=$(sgdisk --set-alignment=8 --new=1:64:+${swaps}M --typecode=1:8200 $i)
 	if test $? != 0; then
@@ -243,16 +244,28 @@ partition() {
 	cleanraid
 }
 
+# $1: raid (optional)
 create_swap() {
 	local i
 	if test -s /etc/misc.conf; then . /etc/misc.conf; fi
+	# for raid1/5, create raid1 for swap, so the box will survive a disk failure
+	if test "$1" = raid; then
+		create_raid raid1 1
+		echo "<p>Creating and activating swap in device $MD..."
+		res="$(mkswap /dev/$MD 2>&1)"
+		if test $? != 0; then
+			err "mkswap error, st=$?: $res"
+		fi
+		echo " done.</p>"
+		return
+	fi
+	
 	for i in $disks; do
 		echo "<p>Creating and activating swap in disk $(basename $i)..."
 		res="$(mkswap ${i}1 2>&1)"
 		if test $? != 0; then
 			err "mkswap error, st=$?: $res"
 		else
-
 			if realpath /sys/block/$(basename $i)/device | grep -q /usb./; then
 				if test -z "$USB_SWAP" -o "$USB_SWAP" = "no"; then
 					echo " done.</p>"
@@ -343,7 +356,12 @@ create_fs() {
 		rm /tmp/${dev}.err
 		err "mk2efs error: $msg" 
 	fi
-		
+	
+	if test "${wish_fs:0:3}" = "ext"; then
+		TUNE_MOUNTS=50; TUNE_DAYS=180
+		tune2fs -c $TUNE_MOUNTS -i $TUNE_DAYS /dev/$dev >& /dev/null
+	fi
+	
 	cat<<-EOF
 		<script type="text/javascript">
 		obj.innerHTML = " done."  
@@ -351,24 +369,25 @@ create_fs() {
 	EOF
 }
 
-# $1=linear|raid0|raid1|raid5
+# $1=linear|raid0|raid1|raid5, $2=partition number: 1 for swap, 2 for other
 create_raid() {
-	curdev=$(mdadm --examine --scan | awk '{ print substr($2, match($2, "md"))}')
+	# other or degraded arrays might exist. Find first non used md number available
+	curdev=$(mdadm --examine --scan | sed -n 's|.*/dev/md/\(.\).*|\1|p')
 	for dev in $(seq 0 9); do
-		if ! echo $curdev | grep -q md$dev; then MD=md$dev break; fi
+		if ! echo "$curdev" | grep -q $dev; then MD=md$dev; break; fi
 	done
 
 	pair1="missing"; pair2="missing"; spare=""
 
 	if test $(ls /dev/sd? | wc -l) = $ndisks; then # all disks selected
 		. /etc/bay
-		if test -n "$left_dev"; then pair1=/dev/${left_dev}2; fi
-		if test -n "$right_dev"; then pair2=/dev/${right_dev}2; fi
+		if test -n "$left_dev"; then pair1=/dev/${left_dev}$2; fi
+		if test -n "$right_dev"; then pair2=/dev/${right_dev}$2; fi
 		usb=$(sed -n '/^usb/s/usb._dev=\(.*\)/\1/p' /etc/bay) # assume only one usb disk!
 	else
 		for i in $disks; do
-			if test $pair1 = "missing"; then pair1=${i}2; continue; fi
-			if test $pair2 = "missing"; then pair2=${i}2; continue; fi
+			if test $pair1 = "missing"; then pair1=${i}$2; continue; fi
+			if test $pair2 = "missing"; then pair2=${i}$2; continue; fi
 		done
 	fi
 
@@ -376,21 +395,21 @@ create_raid() {
 	case "$1" in
 		linear|raid0)
 			if test $ndisks = 3; then
-				spare="/dev/${usb}2"
+				spare="/dev/${usb}$2"
 			fi
 			;;
 		raid1)  opts="$opts --bitmap=internal"
 			if test $ndisks = 1; then
 				ndisks=2
 			elif test $ndisks = 3; then
-				spare="/dev/${usb}2"
+				spare="/dev/${usb}$2"
 				opts="$opts --spare-devices=1"
 				ndisks=2
 			fi
 			;;
 		raid5)  opts="$opts --bitmap=internal"
 			if test $ndisks = 3; then
-				spare="/dev/${usb}2"
+				spare="/dev/${usb}$2"
 			fi
 			;;
 	esac
@@ -418,7 +437,7 @@ standard() {
 jbod() {
 	partition raid
 	create_swap
-	create_raid linear
+	create_raid linear 2
 	create_fs /dev/$MD
 }
 
@@ -426,9 +445,9 @@ raid0() {
 	local i
 	partition raid equal
 	create_swap
-	create_raid raid0
+	create_raid raid0 2
 	create_fs /dev/$MD
-        for i in $disks; do                                                            
+	for i in $disks; do                                                            
         	create_fs ${i}3                                                        
 	done
 }
@@ -436,8 +455,8 @@ raid0() {
 raid1() {
 	local i
 	partition raid equal
-	create_swap
-	create_raid raid1
+	create_swap raid
+	create_raid raid1 2
 	create_fs /dev/$MD
 	for i in $disks; do
 		create_fs ${i}3
@@ -447,8 +466,8 @@ raid1() {
 raid5() {
 	local i
 	partition raid equal
-	create_swap
-	create_raid raid5
+	create_swap raid
+	create_raid raid5 2
 	create_fs /dev/$MD
 	for i in $disks; do
 		create_fs ${i}3

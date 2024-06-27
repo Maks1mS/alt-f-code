@@ -4,8 +4,13 @@
 #
 #############################################################
 
-IPSEC_TOOLS_MAJOR:=0.8
-IPSEC_TOOLS_VERSION:=0.8.0
+# http://ipsec-tools.sourceforge.net
+# The development of ipsec-tools has been ABANDONED.
+#
+# ipsec-tools has security issues, and you should not use it.
+# Please switch to a secure alternative!
+
+IPSEC_TOOLS_VERSION:=0.8.2
 IPSEC_TOOLS_SOURCE:=ipsec-tools-$(IPSEC_TOOLS_VERSION).tar.bz2
 IPSEC_TOOLS_SITE:=$(BR2_SOURCEFORGE_MIRROR)/project/ipsec-tools/ipsec-tools/$(IPSEC_TOOLS_VERSION)
 IPSEC_TOOLS_CAT:=$(BZCAT)
@@ -18,6 +23,8 @@ IPSEC_TOOLS_BINARY_RACOONCTL:=src/racoon/racoonctl
 IPSEC_TOOLS_TARGET_BINARY_SETKEY:=usr/sbin/setkey
 IPSEC_TOOLS_TARGET_BINARY_RACOON:=usr/sbin/racoon
 IPSEC_TOOLS_TARGET_BINARY_RACOONCTL:=usr/sbin/racoonctl
+
+IPSEC_TOOLS_CONFIG_FLAGS = --enable-security-context=no
 
 ifeq ($(BR2_PACKAGE_IPSEC_TOOLS_ADMINPORT), y)
 IPSEC_TOOLS_CONFIG_FLAGS+= --enable-adminport
@@ -75,7 +82,7 @@ $(DL_DIR)/$(IPSEC_TOOLS_SOURCE):
 $(IPSEC_TOOLS_DIR)/.patched: $(DL_DIR)/$(IPSEC_TOOLS_SOURCE)
 	$(IPSEC_TOOLS_CAT) $(DL_DIR)/$(IPSEC_TOOLS_SOURCE) | tar -C $(BUILD_DIR) $(TAR_OPTIONS) -
 	toolchain/patch-kernel.sh $(IPSEC_TOOLS_DIR) package/ipsec-tools ipsec-tools-$(IPSEC_TOOLS_VERSION)\*.patch
-	$(CONFIG_UPDATE) $(IPSEC_TOOLS_DIR)
+	#$(CONFIG_UPDATE) $(IPSEC_TOOLS_DIR)
 	touch $@
 
 $(IPSEC_TOOLS_DIR)/.configured: $(IPSEC_TOOLS_DIR)/.patched
@@ -105,6 +112,7 @@ $(IPSEC_TOOLS_DIR)/.configured: $(IPSEC_TOOLS_DIR)/.patched
 	# echo '#undef index'; \
 	# echo '#define index(a, b) strchr(a, b)'; \
 	#) >> $(IPSEC_TOOLS_DIR)/config.h
+	if ! test -f $(STAGING_DIR)/usr/include/err.h; then \
 	(echo '#include <errno.h>'; \
 	echo '#define err(exitcode, format, args...) \
 		errx(exitcode, format ": %s", ## args, strerror(errno))'; \
@@ -114,7 +122,8 @@ $(IPSEC_TOOLS_DIR)/.configured: $(IPSEC_TOOLS_DIR)/.patched
 		warnx(format ": %s", ## args, strerror(errno))'; \
 	echo '#define warnx(format, args...) \
 		fprintf(stderr, format "\n", ## args)'; \
-	) > $(IPSEC_TOOLS_DIR)/err.h
+	) > $(IPSEC_TOOLS_DIR)/err.h; \
+	fi
 	touch $@
 
 $(IPSEC_TOOLS_DIR)/$(IPSEC_TOOLS_BINARY_SETKEY) \

@@ -25,6 +25,7 @@ $(eval $(call AUTOTARGETS,package,openvpn))
 # see https://wiki.debian.org/OpenVPN on how to test
 
 $(OPENVPN_HOOK_POST_CONFIGURE):
+	if ! test -f $(STAGING_DIR)/usr/include/err.h; then \
 	(echo '#include <errno.h>'; \
 	echo '#define err(exitcode, format, args...) \
 		errx(exitcode, format ": %s", ## args, strerror(errno))'; \
@@ -34,8 +35,9 @@ $(OPENVPN_HOOK_POST_CONFIGURE):
 		warnx(format ": %s", ## args, strerror(errno))'; \
 	echo '#define warnx(format, args...) \
 		fprintf(stderr, format "\n", ## args)'; \
-	) > $(OPENVPN_DIR)/err.h
-	$(SED) 's/<err.h>/"err.h"/' $(OPENVPN_DIR)/src/plugins/down-root/down-root.c
+	) > $(OPENVPN_DIR)/err.h; \
+	$(SED) 's/<err.h>/"err.h"/' $(OPENVPN_DIR)/src/plugins/down-root/down-root.c; \
+	fi
 	touch $@
 	
 $(OPENVPN_TARGET_INSTALL_TARGET):

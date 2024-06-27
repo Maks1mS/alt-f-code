@@ -5,5 +5,5 @@ Description: A system which facilitates service discovery on a local network.
 Architecture: arm
 Priority: optional
 Section: networking
-Source: http://www.avahi.org
+Source: https://www.avahi.org
 Maintainer: jcard

@@ -12,18 +12,18 @@ CONF_F=/etc/dnsmasq.conf
 CONF_NTP=/etc/ntp.conf
 
 if test -n "$Submit"; then
-	if test -z "$high_rg" -o -z "$low_rg" -o -z "$lease"; then
+	if test -z "$high_rg" -o -z "$low_rg" -o -z "$glease"; then
 		msg "Ip start, IP end and Lease all must be specified"
 	elif ! $(checkip $high_rg); then
 		msg "The start IP must be in the form x.x.x.x, where x is greater than 0 and lower then 255."
 	elif ! $(checkip $low_rg); then
 		msg "The end IP must be in the form x.x.x.x, where x x is greater than 0 and lower then 255."
-	elif ! $(echo $lease | grep -q -e '^[0-9]\{1,3\}[mh]\?$'); then
+	elif ! $(echo $glease | grep -q -e '^[0-9]\{1,3\}[mh]\?$'); then
 		msg "Lease time must be an integer specifying seconds, minutes (20m), or hours (3h)"
 	fi
 
 	sed -i '/^dhcp-range=/d' $CONF_F
-	echo "dhcp-range=$low_rg,$high_rg,$lease" >> $CONF_F
+	echo "dhcp-range=$low_rg,$high_rg,$glease" >> $CONF_F
 
 	net=$(hostname -d)
 	sed -i '/^domain=/d' $CONF_F
@@ -37,13 +37,17 @@ if test -n "$Submit"; then
 	if test "$ntp" = "local"; then
 		echo "option:ntp-server,0.0.0.0	# ntp server" >> $CONF_O
 	elif test "$ntp" = "server"; then
-			if test -z "$ntp_entry"; then continue; fi
-			res="$(nslookup $ntp_entry 2> /dev/null)"
-			if test $? != 0; then
-				msg "Can't get $ntp_entry IP."
+		ntph=$(while read ntp_srv host; do # IPv4
+			if test "$ntp_srv" = "server" -a "$host" != "127.127.1.0"; then
+				nslookup "$host" 2> /dev/null | awk '/^Name:/{
+					while (getline)
+						if (index($3,":") == 0)
+							printf("%s,", $3) }'
 			fi
-			ntph=$(echo "$res" | awk '/Address/{ if (NR == 5) print $3}')
+		done < $CONF_NTP )
+		if test -n "$ntph"; then
 			echo "option:ntp-server,$ntph	# ntp server" >> $CONF_O
+		fi
 	fi
 
 	echo > $CONF_H
@@ -51,30 +55,27 @@ if test -n "$Submit"; then
 		nm=$(eval echo \$nm_$i)
 		ip=$(eval echo \$ip_$i)
 		mac=$(httpd -d "$(eval echo \$mac_$i)")
-		lease=$(eval echo \$lease_$i)
 
 		if test -z "$nm" -a -z "$ip" -a -z "$mac"; then continue; fi
 
-		if test -z "$nm" -o -z "$ip" -o -z "$mac"; then
-			msg "You must specify a name, IP and MAC"
+		if test -z "$nm" -o -z "$mac"; then
+			msg "You must specify at least a name and MAC"
 		fi
 		
 		if ! $(checkname $nm); then
 			msg "The host name can only have letters and digits, no spaces, and must begin with a letter"
-		elif ! $(checkip $ip); then
-			msg "The IP must be in the form x.x.x.x, where x is greater than 0 and lower then 255."
+		elif test -n "$ip" && ! $(checkip $ip); then
+				msg "The IP must be in the form x.x.x.x, where x is greater than 0 and lower then 255."
 		elif ! $(checkmac $mac); then
 			msg "The MAC must be in the form xx:xx:xx:xx:xx:xx, where x is one digit or one letter in the 'a' to 'f' range"
-		elif test -n "$lease"; then
-			if ! $(echo "$lease" | grep -q -e '^[0-9]\{1,3\}[mh]\?$'); then
-				msg "Lease time must be an integer specifying seconds, minutes (20m), or hours (3h)"
-			fi
 		fi
 
-		if test -z "$lease"; then
-			echo "$mac,$nm,$ip" >> $CONF_H
-		else
-			echo "$mac,$nm,$ip,$lease" >> $CONF_H
+		if test -n "$nm" -a -n "$mac"; then
+			if test -z "$ip"; then
+				echo "$mac,$nm" >> $CONF_H
+			else
+				echo "$mac,$nm,$ip,$glease" >> $CONF_H
+			fi
 		fi
 	done
 	
@@ -101,7 +102,7 @@ if test -n "$Submit"; then
 	fi
 
 	if rcdnsmasq status >& /dev/null; then
-		rcdnsmasq reload >& /dev/null
+		rcdnsmasq restart >& /dev/null
 	fi
 fi
 

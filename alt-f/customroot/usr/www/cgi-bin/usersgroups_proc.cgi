@@ -29,32 +29,24 @@ elif test -n "$change_pass"; then
 	gotopage /cgi-bin/newuser.cgi?act=changepass?uname=$uname?nick=$nick
 
 elif test -n "$del_user"; then
-	udir=$(awk -F : '/'$nick'/{print $6}' $CONFP)
-	uname=$(awk -F : '/'$nick'/{print $5}' $CONFP)
-#	rm -rf $(readlink -f "$udir")
-	smbpasswd -x $nick >& /dev/null
-	rm -f /etc/samba/credentials.$nick
-	sed -i "/^$nick = /d" $CONFS >& /dev/null
-	sed -i "/^$nick:/d" $CONFRS  >& /dev/null
-	sed -i "/^$uname:/d" $CONFRS  >& /dev/null
-	sed -i "/^\[$nick\]/,/^$/d" $CONFR
-	sed -i "/^\[$uname\]/,/^$/d" $CONFR
+	if id $nick >& /dev/null; then
+		udir=$(awk -F : '/^'$nick':/{print $6}' $CONFP)
+		uname=$(awk -F : '/^'$nick':/{print $5}' $CONFP)
+		smbpasswd -x $nick >& /dev/null
+		rm -f /etc/samba/credentials.$nick
+		sed -i "/^$nick = /d" $CONFS >& /dev/null
+		sed -i -e "/^$nick:/d" -e "/^$uname:/d" $CONFRS  >& /dev/null
+		sed -i -e "/^\[$nick\]/,/^$/d" -e "/^\[$uname\]/,/^$/d" $CONFR >& /dev/null
 
-	# busybox bug: says that can't remove user from its main group (when what is asked is supplementary)
-	mgrp=$(id -gn $nick)
-	for i in $(id -Gn $nick); do
-		if test "$i" != "$mgrp"; then
-			#delgroup $nick $i
-			sed -ir '/^'$i':/s/'$nick',?//' /etc/group
-			sed -i 's/\(.*\), *$/\1/' /etc/group
-		fi
-	done
-	deluser $nick
+		for i in $(id -Gn $nick); do
+			delgroup $nick $i >& /dev/null
+		done
+		deluser $nick >& /dev/null
 
-	if test -d "$udir"; then
-		rmdir "$udir" >& /dev/null
-		if test $? = 1; then
-			msg "The users home folder is not empty and was not deleted"
+		if test -d "$udir"; then
+			if ! rmdir "$udir" >& /dev/null; then
+				msg "The users home folder is not empty and was not deleted"
+			fi
 		fi
 	fi
 

@@ -8,40 +8,45 @@ check_cookie
 html_header "Firmware Updater"
 
 busy_cursor_start
-echo "<p>Uploading file... "
+echo "<p>Uploading and processing file... "
 
-if ! upfile=$(upload_file); then
-	msg "Error: Uploading failed: $upfile"
+if ! res="$(upload_file)"; then
+	msg "Error: Uploading failed"
 	exit 0
 fi
 
-if ! test -s $upfile; then
-	rm -f $upfile
+eval "$res"
+
+#echo res: "$res"
+#echo password="$(echo "$passwordx" | tr " " ".")"
+
+if ! test -s $fw_bin; then
+	rm -f $fw_bin $fw_sha1
 	msg "Error: The uploaded file is empty."
 	exit 0
 fi
 
 cd /tmp
-res=$(dns323-fw -s $upfile)
+res=$(dns323-fw -s $fw_bin)
 st=$?
 
 echo "done.</p><p>Calculating uploaded file SHA1..."
-sha1=$(sha1sum $upfile | cut -d" " -f1)
-if test -s fw.sha1; then
-	if test "$sha1" != $(cat fw.sha1 | cut -d" " -f1); then
-		rm -f $upfile kernel initramfs sqimage defaults fw.sha1
+sha1=$(sha1sum $fw_bin | cut -d" " -f1)
+if test -s $fw_sha1; then # harcoded name
+	if test "$sha1" != $(cat $fw_sha1 | cut -d" " -f1); then
+		rm -f $fw_bin $fw_sha1 kernel initramfs sqimage defaults
 		msg "Error: The uploaded file does not match its sha1 file"
 		exit 0
 	fi
 	sha1chk=y
 fi
 
-rm -f $upfile fw.sha1
+rm -f $fw_bin $fw_sha1
 
 echo "done.</p>"
 busy_cursor_end
 
-supported="D-Link DNS-327L-Ax, DNS-320-Ax, DNS-320-Bx, DNS-320L-Ax, DNS-321-Ax, DNS-323-A1/B1/C1, DNS-325-Ax, Conceptronic CH3SNAS, Fujitsu-Siemens DUO 35-LR"
+supported="D-Link DNS-327L-Ax, DNS-320-Ax, DNR-322L-Ax, DNS-320-Bx, DNS-320L-Ax, DNS-321-Ax, DNS-323-A1/B1/C1, DNS-325-Ax, Conceptronic CH3SNAS, Fujitsu-Siemens DUO 35-LR"
 
 if test $st != "0"; then
 	rm -f kernel initramfs sqimage defaults
@@ -63,6 +68,7 @@ fi
 # DNS320-B		0		8			c			1		1		5
 # DNS320L		0		8			b			1		1		6
 # DNS327L		0		8			d			1		1		7
+# DNR322L		1		8			2			1		1		8
 # Alt-F-0.1B	1		2			3			4		5		0
 # Alt-F-0.1RC	7		1			1			1		4		0
 
@@ -79,6 +85,7 @@ case "$sig" in
 	"08d1") ftype="DNS-327L-Ax" ;; # DNS-327L-rev-Ax
 	"0851"|"0852") ftype="DNS-325-Ax" ;; # DNS-325-rev-Ax
 	"0871"|"0872") ftype="DNS-320-Ax" ;; # DNS-320-rev-Ax
+	"1821") ftype="DNR-322L-Ax" ;; # DNR-322L-rev-Ax
 	"08c1") ftype="DNS-320-Bx" ;; # DNS-320-rev-B
 	"08b1") ftype="DNS-320L-Ax" ;; # DNS-320L-rev-A1
 	"a111"|"a112") ftype="DNS-321-Ax" ;; # DNS-321-rev-Ax
@@ -98,6 +105,7 @@ case "$brd" in
 	"DNS-327L-Ax") if test $ftype != "DNS-327L-Ax"; then notcomp=yes; fi ;;
 	"DNS-325-Ax") if test $ftype != "DNS-325-Ax"; then notcomp=yes; fi ;;
 	"DNS-320-Ax") if test $ftype != "DNS-320-Ax"; then notcomp=yes; fi ;;
+	"DNR-322L-Ax") if test $ftype != "DNR-322L-Ax"; then notcomp=yes; fi ;;
 	"DNS-321-Ax") if test $ftype != "DNS-321-Ax"; then notcomp=yes; fi ;;
 	"DNS-320-Bx"|"DNS-320L-Ax")
 		if test $ftype != "DNS-320-Bx" -a $ftype != "DNS-320L-Ax"; then notcomp=yes; fi ;;
@@ -126,7 +134,7 @@ else
 	flashfile="checked"
 fi
 
-if echo $brd | grep -qE "DNS-327L|DNS-325|DNS-320"; then
+if echo $brd | grep -qE "DNS-327L|DNS-325|DNS-320|DNR-322L"; then
 	try_dis="disabled"
 	recover_dis="disabled"
 fi

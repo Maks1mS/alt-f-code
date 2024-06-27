@@ -76,6 +76,10 @@ bison-dirclean:
 
 $(eval $(call AUTOTARGETS_HOST,package,bison))
 
+$(BISON_HOST_HOOK_POST_EXTRACT):
+	toolchain/patch-kernel.sh $(@D) $($(PKG)_DIR_PREFIX)/$($(PKG)_NAME) $($(PKG)_NAME)\*.patch $($(PKG)_NAME)\*.patch.$(ARCH)
+	touch $@
+
 #############################################################
 #
 # Toplevel Makefile options

@@ -88,7 +88,7 @@ if test "$install" = "Install"; then
 	fi
 
 	part=$(httpd -d $part)
-	mp=$(cat /proc/mounts | grep $part | cut -d" " -f2)
+	mp=$(awk '/\/dev\/'$part'[[:space:]]/{print $2}' /proc/mounts)
 	ffpdir=$mp/ffp
 
 	if test -d $ffpdir; then

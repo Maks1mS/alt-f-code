@@ -102,6 +102,7 @@ $(GETTEXT_DIR)/.configured: $(GETTEXT_DIR)/.unpacked
 		--exec-prefix=/usr \
 		--disable-libasprintf \
 		--enable-shared \
+		--without-emacs \
 		$(IGNORE_EXTERNAL_GETTEXT) \
 		$(OPENMP) \
 	)
@@ -157,7 +158,7 @@ gettext-dirclean:
 
 gettext-target: $(GETTEXT_DIR)/$(GETTEXT_BINARY)
 	$(MAKE) DESTDIR=$(TARGET_DIR) -C $(GETTEXT_DIR) install
-	chmod +x $(TARGET_DIR)/usr/lib/libintl.so* # identify as needing to be stripped
+	chmod +x $(TARGET_DIR)/$(LIBINTL_TARGET_BINARY)* # identify as needing to be stripped
 ifneq ($(BR2_HAVE_INFOPAGES),y)
 	rm -rf $(TARGET_DIR)/usr/info
 endif
@@ -168,7 +169,7 @@ endif
 		/usr/doc /usr/share/aclocal /usr/include/libintl.h)
 	rmdir --ignore-fail-on-non-empty $(TARGET_DIR)/usr/include
 
-$(TARGET_DIR)/usr/lib/libintl.so: $(STAGING_DIR)/$(GETTEXT_TARGET_BINARY)
+$(TARGET_DIR)/$(LIBINTL_TARGET_BINARY): $(STAGING_DIR)/$(GETTEXT_TARGET_BINARY)
 	cp -dpf $(STAGING_DIR)/usr/lib/libgettext*.so* \
 		$(STAGING_DIR)/usr/lib/libintl*.so* $(TARGET_DIR)/usr/lib/
 	$(STRIPCMD) $(STRIP_STRIP_UNNEEDED) $(TARGET_DIR)/usr/lib/libgettext*.so*

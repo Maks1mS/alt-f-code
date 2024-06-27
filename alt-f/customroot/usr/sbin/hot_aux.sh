@@ -1,11 +1,13 @@
 #!/bin/sh
 
+umask 0022
+
 debug=true
 
 if test -n "$debug"; then
 	exec >> /var/log/hot_aux.log 2>&1
 #	set -x
-	echo -e "\nDATE=$(date)"
+	echo -e "\nUPTIME=$(cut -f1 -d" " /proc/uptime)"
 	env
 fi
 
@@ -13,48 +15,86 @@ MISCC=/etc/misc.conf
 FSTAB=/etc/fstab
 USERLOCK=/var/lock/userscript
 SERRORL=/var/log/systemerror.log
-PLED=/tmp/sys/power_led/trigger
+PLED=/tmp/sys/power_led
+FSCK_FORCE=/tmp/fsckboot
+FSCK_LCK=/tmp/fsck_lock
 
 if test -f $MISCC; then . $MISCC; fi
 
-# don't do paralell fsck (assume at most one fsck is running)
+# don't do paralell fsck
 check() {
-	while ls /tmp/check-* >& /dev/null; do
-		if kill -0 $(cat /tmp/check-*.pid) 2> /dev/null; then
-			# is it being checked? lvm generates extra events...
-			if test -f /tmp/check-$MDEV; then exit 0; fi
-			echo hot_aux "$MDEV waiting to be fscked"
-			sleep 10
-		else
-			while ! mkdir /tmp/fsck_lock; do sleep 1; done
-			rm -f /tmp/check-*
-			return
+	# there is a burst of add/remove events for device-mapper, let it stabilize
+	if test ${MDEV:0:3} = "dm-"; then sleep 1; fi
+	
+	cnt=0
+	while ! mkdir $FSCK_LCK >& /dev/null; do
+		if ! test -f /tmp/wait-$MDEV; then
+			echo "$MDEV waiting to be fscked"
+			touch /tmp/wait-$MDEV
+			echo $$ > /tmp/wait-$MDEV.pid
 		fi
+		sleep 1
+
+		jbs=$(ls /tmp/check-*.pid 2> /dev/null)
+		if test -z "$jbs"; then # dangling lock?
+			cnt=$((cnt+1))
+			if test $cnt = 5; then # dangling for 5 consecutive checks, take over
+				break
+			fi
+			continue
+		else
+			cnt=0
+		fi
+		
+		for i in $jbs; do # cleanup
+			if kill -0 $(cat $i) 2> /dev/null; then # alive
+				# that's me being checked? lvm generates extra events...
+				if test "$i" = /tmp/check-$MDEV.pid; then
+					echo "$MDEV is already being fscked"
+					exit 0
+				fi
+			else # dead
+				rm -f $i ${i%.pid}.log ${i%.pid}
+			fi
+		done
 	done
+	rm -f /tmp/wait-$MDEV /tmp/wait-$MDEV.pid
+	
+	if grep -q "^/dev/$MDEV" /proc/mounts; then
+		echo "$MDEV is already mounted"
+		rmdir $FSCK_LCK
+		exit 0		
+	fi
 }
 
 start_altf_dir() {
 	if test -d /mnt/$lbl/Alt-F; then
 		if test -f /mnt/$lbl/Alt-F/NOAUFS; then
 			emsg="Alt-F directory found in $lbl but not used, as file NOAUFS exists on it."
-			logger -st hot_aux $emsg
-			echo "<li>$emsg</li>" >> $SERRORL
+			echo $emsg
+			#echo "<li>$emsg</li>" >> $SERRORL
 		elif test "$mopts" != "ro"; then
 			if ! test -h /Alt-F -a -d "$(readlink -f /Alt-F)"; then
-				logger -st hot_aux "Alt-F directory found in $lbl"
-				for i in Alt-F ffp home Public Backup; do
+				echo "Alt-F directory found in $lbl"
+				for i in Alt-F opt ffp home Public Backup; do
 					if test -h /mnt/$lbl/Alt-F/$i; then
 						rm -f /mnt/$lbl/Alt-F/$i
 					fi
 				done
-				ln -s /mnt/$lbl/Alt-F /Alt-F
+				ln -sf /mnt/$lbl/Alt-F /Alt-F
 				echo "DON'T ADD, REMOVE OR MODIFY ANY FILE UNDER /ALT-F or $(realpath /Alt-F 2> /dev/null)
 	OR ANY OF ITS SUB-DIRECTORIES, OR THE SYSTEM MIGHT HANG!" > /Alt-F/README.txt
+				rcs=""; toinit=""; tostart=""
 				for i in $(ls /Alt-F/etc/init.d/S??* 2> /dev/null); do
 					f=$(basename $i)
-					ln -sf /usr/sbin/rcscript /sbin/rc${f#S??}
+					isc=rc${f#S??}
+					ln -sf /usr/sbin/rcscript /sbin/$isc
+					rcs="$rcs $isc"
+					if grep -q 'sinit()' $i; then
+						toinit="$toinit $isc"
+					fi
 					if test -x $i; then
-						tostart="$tostart rc${f#S??}"
+						tostart="$tostart $isc"
 					fi
 				done
 
@@ -78,23 +118,32 @@ start_altf_dir() {
 
 				if ! aufs.sh -m; then
 					emsg="Alt-F directory found in $lbl but not used, aufs mount failed."
-					logger -st hot_aux $emsg
+					echo $emsg
 					echo "<li>$emsg</li>" >> $SERRORL
 					return 1
 				fi
 
 				ipkg -update # >& /dev/null # force ipkg_upgrade to update packages
 
+				# kernel-modules might be installed, and /etc/modules specify some
+				# FIXME: not needed, we already have S13modload to load km, drop or generalize it
+				# and remove kernel-modules package, S13modload is its own file.
+				if test -s /etc/modules; then
+					echo "Loading kernel modules"
+					modprobe -ab $(sed 's/#.*//' /etc/modules | tr -s '\n' ' ')
+				fi
+
+				for i in $toinit; do
+					echo "$($i init)"
+				done
+
 				for i in $tostart; do
-					if ! test -f /sbin/$i; then # ipkg_upgrade might have removed them
-						ln -sf /usr/sbin/rcscript /sbin/$i
-					fi
-					logger -st hot_aux "$($i restart)"
+					echo "$($i restart)"
 				done
 			fi
 		else
 			emsg="Alt-F directory found in $lbl but not used, as filesystem is read-only!"
-			logger -st hot_aux $emsg
+			echo $emsg
 			echo "<li>$emsg</li>" >> $SERRORL
 		fi
 	fi
@@ -103,7 +152,7 @@ start_altf_dir() {
 stop_altf_dir() {
 	if test -d /mnt/$lbl/Alt-F -a "$(readlink -f /Alt-F 2> /dev/null)" = "/mnt/$lbl/Alt-F"; then
 
-		for i in $(ls -r /Alt-F/etc/init.d/S??*); do
+		for i in $(ls -r /Alt-F/etc/init.d/S??* 2> /dev/null); do
 			f=$(basename $i)
 			f=rc${f#S??}
 			if $f status >& /dev/null; then
@@ -120,7 +169,7 @@ stop_altf_dir() {
 		done
 
 		for i in $tostop; do
-			logger -st hot_aux "$($i stop)"
+			echo "$($i stop)"
 		done
 
 		for i in $(ls /Alt-F/etc/init.d/S??* 2> /dev/null); do
@@ -131,8 +180,8 @@ stop_altf_dir() {
 			fi
 		done
 
-		if ! aufs.sh -u; then
-			logger -st hot_aux "aufs.sh unmount failed"
+		if aufs.sh -s && ! aufs.sh -u; then
+			echo "aufs.sh unmount failed"
 			start_altf_dir
 			return 1
 		fi
@@ -149,13 +198,13 @@ if test "$1" = "-start-altf-dir"; then
 				printf "%s", a[i]; exit }
 		}
 	} ' /proc/mounts)"
-	logger -st hot_aux -start-altf-dir lbl="$lbl" mopts="$mopts"
+	echo -start-altf-dir lbl="$lbl" mopts="$mopts"
 	start_altf_dir
 	exit $?
 
 elif test "$1" = "-stop-altf-dir"; then
 	lbl=$(basename $(dirname $2))
-	logger -st hot_aux -stop-altf-dir lbl="$lbl"
+	echo -stop-altf-dir lbl="$lbl"
 	stop_altf_dir
 	exit $?
 
@@ -177,15 +226,12 @@ if test "$fsckcmd" != "echo"; then
 
 	if test "$fsopt" = "-"; then fsopt=""; fi
 
-# FIXME: /tmp/fsckboot has to be removed, or most ops from Disk->Filesystem
-# will be done twice, as hot.sh is called at its end.
-# Is that a good place to remove it, when the user checks a fs?
-	if test -f /tmp/fsckboot && echo $fstype | grep -q 'ext.' ; then
+	if test -f $FSCK_FORCE && echo $fstype | grep -q 'ext.' ; then
 		fsopt="-fp"
 		cmsg="force"
 	fi
 
-	logger -st hot_aux "Start $cmsg fscking $MDEV"
+	echo "Start $cmsg fscking $MDEV"
 
 	xf=/tmp/check-$MDEV
 	logf=${xf}.log
@@ -193,86 +239,101 @@ if test "$fsckcmd" != "echo"; then
 
 	touch $xf
 	echo $$ > $pidf
-	rmdir /tmp/fsck_lock 2> /dev/null
 
-	echo heartbeat > $PLED
-if true; then
-	mkfifo /tmp/fsck_pipe-$MDEV >& /dev/null
-	# create pipe consumer background job
+	echo heartbeat > $PLED/trigger
+	
+	# launch logfile "stripper" to avoid huge log files
 	(while true; do
-		dd if=/tmp/fsck_pipe-$MDEV of=$logf- bs=64K count=1 2> /dev/null 
-		mv $logf- $logf
-		sleep 5
+		if test -s $logf-; then
+			tail -3 $logf- > $logf
+			dd if=/dev/null of=$logf- 2> /dev/null # truncate to zero
+		fi
+		sleep 10
 	done)&
 	wj=$!
-	res="$($fsckcmd $fsopt -C5 $PWD/$MDEV 2>&1 5<> /tmp/fsck_pipe-$MDEV)"
-else
-	res="$($fsckcmd $fsopt -C5 $PWD/$MDEV 2>&1 5<> $logf)"
-fi
-	if test $? -ge 2; then
+	
+	res="$($fsckcmd $fsopt -C5 $PWD/$MDEV 2>&1 5>> $logf-)"
+	st=$?
+	if test $st -ge 2; then
 		mopts="ro"
-		emsg="Unable to automatically fix $MDEV, mounting Read Only: $res"
-		echo "<li><pre>$emsg</pre></li>" >> $SERRORL
+		romsg="Unable to automatically fix $MDEV, err $st, trying to mount Read Only: $res"
 	else
 		emsg="Finish fscking $MDEV: $res"
 	fi
-	logger -st hot_aux "$emsg"
-if true; then
-	kill $wj
-	#echo > /tmp/fsck_pipe-$MDEV # echo blocks here!
-	rm -f /tmp/fsck_pipe-$MDEV $logf- 
-fi
-	rm -f $xf $logf $pidf
+	echo "$emsg"
 
-	if test -z "$(ls /tmp/check-* 2>/dev/null)"; then
-		echo none > $PLED
+	kill $wj
+	rm -f $xf $logf $logf- $pidf
+
+	if ! ls /tmp/check-* >& /dev/null; then
+		echo none > $PLED/trigger
+		echo 1 > $PLED/brightness
 	fi
 
 else
-	emsg="No fsck command for $fstype, $MDEV not fscked."
-	logger -st hot_aux $emsg
+	emsg="No fsck command for $fstype, $MDEV not checked."
+	echo $emsg
 	echo "<li>$emsg</li>" >> $SERRORL
 fi
 
+# nobody is waiting, so assume nobody will appear
+if ! ls /tmp/wait-*.pid >& /dev/null; then
+	rm -f $FSCK_FORCE
+fi
+
+mkdir -p /mnt/$lbl
+if mountpoint -q /mnt/$lbl; then
+	echo "/mnt/$lbl is already being used"
+	rmdir $FSCK_LCK 2> /dev/null
+	return 0
+fi
+
 # record fstab date, don't change it
-touch -r /etc/fstab /tmp/fstab_date
-# concurrency: this needs a lock
-while ! mkdir /tmp/fstab_lock >& /dev/null; do sleep 1; done
+TF=$(mktemp)
+touch -r /etc/fstab $TF
 sed -i '\|^'$PWD/$MDEV'|d' $FSTAB
 echo "$PWD/$MDEV /mnt/$lbl $fstype $mopts 0 0" >> $FSTAB
-rmdir /tmp/fstab_lock
-touch -r /tmp/fstab_date /etc/fstab
-rm /tmp/fstab_date
+touch -r $TF /etc/fstab
+rm $TF
 
 # don't mount if noauto is present in mount options
 if echo "$mopts" | grep -q noauto; then
 	emsg="Not auto-mounting $lbl as 'noauto' is present in the mount options."
-	logger -st hot_aux $emsg
-	echo "<li>$emsg</li>" >> $SERRORL
+	echo $emsg
+	#echo "<li>$emsg</li>" >> $SERRORL
+	rmdir $FSCK_LCK 2> /dev/null
 	exit 0
 fi
+	
+res=$(mount $PWD/$MDEV 2>&1)
+st=$?
+rmdir $FSCK_LCK 2> /dev/null
+if test $st != 0; then
+	echo "Error $st mounting $MDEV: $res"
+	exit 1
+fi
 
-mount $PWD/$MDEV
+if test -n "$romsg"; then echo "$romsg"; fi
 
 if test -f /usr/sbin/quotaon; then
-	if echo "$mopts" | grep -qE '(grpjquota|usrjquota)'; then
-		logger -st hot_aux "Activating quotas on $MDEV"
+	if echo "$mopts" | grep -qE '(usrquota|usrjquota|grpquota|grpjquota)'; then
+		echo "Activating quotas on $MDEV"
 		quotaon -ug $PWD/$MDEV
 	fi
 fi
 
 if test -d "/mnt/$lbl/Users"; then
 	if ! test -h /home -a -d "$(readlink -f /home)" ; then
-		logger -st hot_aux "Users directory found in $lbl"
+		echo "Users directory found in $lbl"
 		ln -s "/mnt/$lbl/Users" /home
 		find /home/ -maxdepth 2 -name crontab.lst | while read ln; do
 			dname=$(dirname "$ln")
 			cd "$dname"
-			duid=$(stat -t . | cut -d " " -f5)
-			fuid=$(stat -t crontab.lst | cut -d " " -f5)
+			duid=$(stat -c %u .)
+			fuid=$(stat -c %u crontab.lst)
 			if test $duid != $fuid; then continue; fi
 			user=$(ls -l crontab.lst | awk '{print $3}')
-			logger -st hot_aux "Starting crontab for $user"
+			echo "Starting crontab for $user"
 			crontab -u $user crontab.lst
 		done
 	fi
@@ -280,21 +341,28 @@ fi
 
 if test -d "/mnt/$lbl/Public"; then
 	if ! test -h /Public -a -d "$(readlink -f /Public)" ; then
-		logger -st hot_aux "Public directory found in $lbl"
+		echo "Public directory found in $lbl"
 		ln -s "/mnt/$lbl/Public" /Public
 	fi
 fi
 
 if test -d "/mnt/$lbl/Backup"; then
 	if ! test -h /Backup -a -d "$(readlink -f /Backup)" ; then
-		logger -st hot_aux "Backup directory found in $lbl"
+		echo "Backup directory found in $lbl"
 		ln -s "/mnt/$lbl/Backup" /Backup
+	fi
+fi
+
+if test -d "/mnt/$lbl/opt"; then
+	if ! test -h /opt -a -d "$(readlink -f /opt)" ; then
+		echo "opt directory found in $lbl"
+		ln -s "/mnt/$lbl/opt" /opt
 	fi
 fi
 
 if test -d "/mnt/$lbl/ffp"; then
 	if ! test -h /ffp -a -d "$(readlink -f /ffp)" ; then
-		logger -st hot_aux "ffp directory found in $lbl"
+		echo "ffp directory found in $lbl"
 		ln -s "/mnt/$lbl/ffp" /ffp
 		if test $? = 0 -a -x /etc/init.d/S??ffp; then
 			rcffp start
@@ -308,7 +376,7 @@ start_altf_dir
 if test -n "$USER_SCRIPT" -a ! -f $USERLOCK; then
 	if test "/mnt/$lbl" = "$(dirname $USER_SCRIPT)" -a -x "/mnt/$lbl/$(basename $USER_SCRIPT)"; then
 		touch $USERLOCK
-		logger -st hot_aux "Executing \"$USER_SCRIPT start\" in background"
+		echo "Executing \"$USER_SCRIPT start\" in background"
 		$USER_SCRIPT start &
 	fi
 fi

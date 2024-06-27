@@ -1,3 +1,6 @@
 #!/bin/sh
 
-python -m compileall /usr/lib/python2.7/site-packages/bcrypt
+# python postinst might not be run yet...
+python -m compileall /usr/lib/python2.7/site-packages/bcrypt >& /dev/null
+
+return 0

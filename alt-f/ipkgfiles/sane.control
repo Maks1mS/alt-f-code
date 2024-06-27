@@ -5,5 +5,5 @@ Depends: libusb, jpeg, tiff, ipkg
 Architecture: arm
 Priority: optional
 Section: printing
-Source: http://www.sane-project.org/
+Source: https://www.sane-project.org/
 Maintainer: jcard

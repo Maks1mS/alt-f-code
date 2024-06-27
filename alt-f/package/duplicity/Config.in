@@ -1,8 +1,11 @@
 config BR2_PACKAGE_DUPLICITY
 	bool "duplicity"
-	select BR2_PACKAGE_PYCRYPTO
 	select BR2_PACKAGE_LIBRSYNC
 	select BR2_PACKAGE_GNUPG
+	select BR2_PACKAGE_CRYPTOGRAPHY
+	select BR2_PACKAGE_PYCRYPTO
+	select BR2_PACKAGE_BCRYPT
+	select BR2_PACKAGE_PYNACL
 	help
 	  Duplicity backs directories by producing encrypted tar-format volumes
 	  and uploading them to a remote or local file server.

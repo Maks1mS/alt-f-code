@@ -5,5 +5,5 @@ Depends: alsa-lib, libid3tag, libpng, twolame, lame, libmad, flac, libvorbis, ip
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://sox.sourceforge.net/Main/HomePage
+Source: https://sox.sourceforge.net/Main/HomePage
 Maintainer: jcard

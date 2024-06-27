@@ -1,6 +1,6 @@
 Package: cryptography
-Depends: cffi, ipkg
-Version: 2.1.2
+Depends: openssl, python, cffi, ipkg
+Version: 3.2.1
 Description: Python cryptographic recipes and primitives
 Architecture: arm
 Priority: optional

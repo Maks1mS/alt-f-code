@@ -1,9 +1,9 @@
 Package: dosfstools
 Description: Tools for creating and checking DOS FAT filesystems.
-Version: 3.0.28
-Depends: ipkg
+Version: 4.2
+Depends: ipkg, libiconv, kernel-modules
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://daniel-baumann.ch/software/dosfstools/
+Source: https://github.com/dosfstools/dosfstools
 Maintainer: jcard

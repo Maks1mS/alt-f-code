@@ -4,8 +4,11 @@
 #
 #############################################################
 
-APR_VERSION = 1.4.6
-APR_SITE = http://archive.apache.org/dist/apr
+#APR_VERSION = 1.7.0
+#APR_VERSION:=1.6.5
+#APR_VERSION:=1.5.2
+APR_VERSION:=1.4.8
+APR_SITE = https://archive.apache.org/dist/apr
 APR_SOURCE = apr-$(APR_VERSION).tar.gz
 
 APR_INSTALL_STAGING = YES

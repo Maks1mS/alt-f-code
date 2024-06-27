@@ -13,6 +13,10 @@ ARIA2_SITE:=$(BR2_SOURCEFORGE_MIRROR)/project/aria2/stable/aria2-$(ARIA2_VERSION
 ARIA2_LIBTOOL_PATCH = NO
 ARIA2_AUTORECONF = NO
 
-ARIA2_CONF_OPT = --program-prefix="" 
-
+ARIA2_DEPENDENCIES = openssl-compat
+ARIA2_CONF_OPT = --program-prefix="" --disable-static --with-xml-prefix=$(STAGING_DIR)/usr
+ARIA2_CONF_ENV = CFLAGS="-I$(STAGING_DIR)/compat/usr/include $(TARGET_CFLAGS)" \
+	CXXFLAGS="-I$(STAGING_DIR)/compat/usr/include $(TARGET_CXXFLAGS)" \
+	LDFLAGS="-L$(STAGING_DIR)/compat/usr/lib $(TARGET_LDFLAGS)"
+	
 $(eval $(call AUTOTARGETS,package,aria2))

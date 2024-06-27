@@ -5,5 +5,5 @@ Depends: groff, ipkg
 Architecture: arm
 Priority: optional
 Section: interpreters
-Source: http://perl.org/
+Source: https://perl.org/
 Maintainer: jcard

@@ -1,5 +1,6 @@
 config BR2_PACKAGE_MINIDLNA
 	bool "minidlna"
+	select BR2_PACKAGE_AVAHI
 	select BR2_PACKAGE_LIBEXIF
 	select BR2_PACKAGE_JPEG
 	select BR2_PACKAGE_LIBID3TAG

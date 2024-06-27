@@ -4,7 +4,6 @@ DESC="The Common Unix Printing System daemon"
 TYPE=sys
 NAME=cupsd
 
-PRINTC=/etc/printcap
 NEED_ALTF_DIR=1
 
 BOX_CRT=/etc/ssl/certs/server.crt
@@ -14,6 +13,7 @@ CUPS_CRT=/etc/ssl/certs/cups.crt
 CUPS_KEY=/etc/ssl/certs/cups.key
 
 CUPS_CONF=/etc/cups
+PRINTC=/etc/printcap
 
 RC_USER=cups
 RC_USERN=9
@@ -21,19 +21,21 @@ RC_GROUP=lpadmin
 RC_GROUPN=9
 RC_DESC="CUPS Daemon"
 
+sinit() {
+	if ! test -e $CUPS_CRT; then
+		ln -sf $BOX_CRT $CUPS_CRT                                            
+		ln -sf $BOX_KEY $CUPS_KEY   
+	fi
+	
+	CUPS_DIRS="/var/spool/cups /var/cache/cups /var/run/cups /var/log/cups"
+	for i in $CUPS_DIRS; do
+		if ! test -d $i; then mkdir -p $i; fi
+	done
+
+	check_user $CUPS_CONF $CUPS_DIRS	
+}
+
 . /etc/init.d/common
-
-if ! test -e $CUPS_CRT; then
-	ln -sf $BOX_CRT $CUPS_CRT                                            
-	ln -sf $BOX_KEY $CUPS_KEY   
-fi
-
-CUPS_DIRS="/var/spool/cups /var/cache/cups /var/run/cups /var/log/cups"
-for i in $CUPS_DIRS; do
-	if ! test -d $i; then mkdir -p $i; fi
-done
-
-check_user $CUPS_CONF $CUPS_DIRS
 
 # FIXME
 chmod a+rx /usr/sbin/cupsd
@@ -50,7 +52,7 @@ case "$1" in
 		for i in $(seq 0 100); do
 			usleep 100000
 			if cupsctl >& /dev/null; then
-				cupsctl _remote_admin=1 _share_printers=1 >& /dev/null
+				cupsctl --remote-admin --share-printers >& /dev/null
 				break
 			fi
 		done

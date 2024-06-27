@@ -6,15 +6,14 @@
 ./usr/bin/quotasync
 ./usr/sbin/convertquota
 ./usr/sbin/edquota
-./usr/sbin/quot
 ./usr/sbin/quotacheck
 ./usr/sbin/quotaoff
 ./usr/sbin/quotaon
 ./usr/sbin/quotastats
 ./usr/sbin/repquota
-./usr/sbin/rpc.rquotad
 ./usr/sbin/setquota
 ./usr/sbin/warnquota
+./usr/sbin/warnquota.sh
 ./usr/sbin/xqmstats
 ./usr/www/cgi-bin/quota.cgi
 ./usr/www/cgi-bin/quota_proc.cgi

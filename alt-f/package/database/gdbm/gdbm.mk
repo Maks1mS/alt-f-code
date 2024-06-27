@@ -20,16 +20,16 @@ $(DL_DIR)/$(GDBM_SOURCE):
 
 $(GDBM_DIR)/.unpacked: $(DL_DIR)/$(GDBM_SOURCE)
 	$(GDBM_CAT) $(DL_DIR)/$(GDBM_SOURCE) | tar -C $(BUILD_DIR) $(TAR_OPTIONS) -
+	toolchain/patch-kernel.sh $(GDBM_DIR) package/database/gdbm/ gdbm-$(GDBM_VERSION)\*.patch
 	touch $@
 
 $(GDBM_DIR)/.configured: $(GDBM_DIR)/.unpacked
-	cat package/database/gdbm/gdbm-1.8.3.patch | patch -p1 -d $(GDBM_DIR)
 	(cd $(GDBM_DIR); rm -rf config.cache; \
 		$(TARGET_CONFIGURE_OPTS) \
 		$(TARGET_CONFIGURE_ARGS) \
 		./configure \
-		--target=$(GNU_TARGET_NAME) \
-		--host=$(GNU_TARGET_NAME) \
+		--target=arm-linux \
+		--host=arm-linux \
 		--build=$(GNU_HOST_NAME) \
 		--prefix=/usr \
 		--libdir=/usr/lib \

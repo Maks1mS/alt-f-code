@@ -1,5 +1,11 @@
 #!/bin/bash
 
+set -u
+
+# FIXME: restrict support only for root and extra images
+# -squashfs with xz compression 
+# -ubifs with lzo
+
 check() {
 	if test "$1" != 0; then
 		echo -e "\nmkfw: Firmware creation FAILED at $2, exiting."
@@ -8,7 +14,7 @@ check() {
 }
 
 usage() {
-	echo "Usage: mkfw [type] (cpio|squsr|sqall*|sqsplit) [compression] (gz|lzma|xz*)"
+	echo "Usage: mkfw [type] (cpio|squsr|sqall*|sqsplit|ubisplit) [compression] (gz|lzma|xz*|lzo)"
 	exit 1
 }
 
@@ -29,6 +35,9 @@ elif test "$#" = 1; then
 	if test "$1" = "cpio" -o "$1" = "squsr" -o "$1" = "sqall" -o "$1" = "sqsplit"; then
 		TYPE=$1
 		COMP=xz
+	elif test "$1" = "ubisplit"; then
+		TYPE=$1
+		COMP=lzo
 	elif test "$1" = "gz" -o "$1" = "lzma" -o "$1" = "xz"; then
 		TYPE=cpio
 		COMP=$1
@@ -43,7 +52,7 @@ else
 fi
 
 if test $TYPE != "cpio" -a $TYPE != "squsr" -a $TYPE != "sqall" -a $TYPE != "sqsplit" \
-	-a $COMP != "gz" -a $COMP != "lzma" -a $COMP != "xz"; then
+	-a $TYPE != "ubisplit" -a $COMP != "gz" -a $COMP != "lzma" -a $COMP != "xz"; then
 	usage
 fi
 
@@ -51,22 +60,31 @@ fi
 board=$BR2_PROJECT
 
 if test $# = 0 -a \( "$board" = "dns325" -o "$board" = "dns327" \); then
-	TYPE="sqsplit"
-	COMP=xz
+	#TYPE="sqsplit"
+	#COMP=xz
+	TYPE="ubisplit"
+	COMP="lzo"
 fi
 
-if test $TYPE = "sqsplit" -a "$board" != "dns325" -a "$board" != "dns327"; then
-	echo "mkfw: ERROR, \"sqsplit\" is only for a dns-320/325/327"
+if test \( $TYPE = "sqsplit" -o $TYPE = "ubisplit" \) -a "$board" != "dns325" -a "$board" != "dns327"; then
+	echo "mkfw: ERROR, \"$TYPE\" is only for a dns-320/325/327"
 	exit 1
 fi
 
 rootfs=rootfs.arm.$TYPE.$COMP
-if test $TYPE = "sqsplit"; then
-	rootfs=rootfs.arm.sqall.$COMP
-	sqimage=rootfs.arm.sqimage.$COMP
+if test $TYPE = "sqsplit" -o $TYPE = "ubisplit"; then
+	rootfs=rootfs.arm.sqall.xz
+	if test $TYPE = "sqsplit"; then
+		xtra_image=rootfs.arm.sqimage.$COMP
+	elif test $TYPE = "ubisplit"; then
+		xtra_image=rootfs.arm.ubimage.$COMP
+	fi
+else
+	xtra_image=""
+	xtra_opts=""
 fi
 
-TFTPD=/srv/tftpboot # for development using tftp on u-boot using serial adapter
+TFTPD=/srv/tftpboot # for development using tftp on u-boot
 DESTD=$BLDDIR/binaries/$board
 KVER=$(cat $BLDDIR/project_build_arm/$board/.linux-version)
 VER=$(cut -f2 -d" " customroot/etc/Alt-F)
@@ -81,31 +99,33 @@ if test ${DESTD}/rootfs.arm.ext2 -nt ${DESTD}/$rootfs; then
 	exit 1
 fi
 
-if test -n "$sqimage"; then
-	if ! test -f "${DESTD}/$sqimage"; then
-		echo "mkfw: ${DESTD}/$sqimage not found, exiting"
+if test -n "$xtra_image"; then
+	if ! test -f "${DESTD}/$xtra_image"; then
+		echo "mkfw: ${DESTD}/$xtra_image not found, exiting"
 		exit 1
 	fi
 
-	if test "${DESTD}/$rootfs" -nt "${DESTD}/$sqimage"; then
-		echo "mkfw: ${DESTD}/$rootfs is newer than ${DESTD}/$sqimage,  exiting"
+	if test "${DESTD}/$rootfs" -nt "${DESTD}/$xtra_image"; then
+		echo "mkfw: ${DESTD}/$rootfs is newer than ${DESTD}/$xtra_image,  exiting"
 		exit 1
 	fi
 	
-	# prepend to sqimage its size and md5sum so that one can know it at boot using nanddump in rcS
-	MTD_PAGES=2048 # NAND flash page size
-	if test "${DESTD}/$sqimage" -nt "${DESTD}/tsqimage"; then
-		len=$(stat -c %s "${DESTD}/$sqimage")
-		md5s=$(md5sum "${DESTD}/$sqimage" | awk '{print $1}')
-		echo "sqimage_size=$len; sqimage_md5s=$md5s;" | dd bs=$MTD_PAGES conv=sync > "$DESTD/tsqimage"
-		cat "${DESTD}/$sqimage" >> "${DESTD}/tsqimage"
+	if test $TYPE = "sqimage"; then
+		# prepend to sqimage its size and md5sum so that one can know it at boot using nanddump in rcS
+		MTD_PAGES=2048 # NAND flash page size
+		if test "${DESTD}/$xtra_image" -nt "${DESTD}/tsqimage"; then
+			len=$(stat -c %s "${DESTD}/$xtra_image")
+			md5s=$(md5sum "${DESTD}/$xtra_image" | awk '{print $1}')
+			echo "sqimage_size=$len; sqimage_md5s=$md5s;" | dd bs=$MTD_PAGES conv=sync > "$DESTD/tsqimage"
+			cat "${DESTD}/$xtra_image" >> "${DESTD}/tsqimage"
+		fi
+		xtra_image=tsqimage
 	fi
-	sqimage=tsqimage
 fi
 
 case $board in
 	dns323) ;;
-	dns325|dns327) sq_opts="-a ${DESTD}/$sqimage" ;;
+	dns325|dns327) xtra_opts="-a ${DESTD}/$xtra_image" ;;
 	*) echo "mkfw: Unsupported \"$board\" board"; exit 1;;
 esac
 
@@ -120,41 +140,42 @@ esac
 # DNS320-A		0		8			7			1/2		0		4
 # DNS320-B		0		8			c			1		1		5
 # DNS320L		0		8			b			1		1		6
+# DNS327L		0		8			d			1		1		7
+# DNR322L		1		8			2			1		1		8
+#
 # Alt-F-0.1B	1		2			3			4		5		0
 # Alt-F-0.1RC	7		1			1			1		4		0
 
 # FIXME: use associative arrays
 # the brand models
-name=(DNS-323-rev-AxBxCx CH3SNAS DUO-35LR DNS-321-rev-Ax DNS-343 DNS-325-rev-Ax DNS-320-rev-Ax DNS-320-rev-Bx DNS-320L-rev-Ax DNS-327L-rev-Ax)
-working=(y y y y n y y y y y)
+name=(DNS-323-rev-AxBxCx CH3SNAS DUO-35LR DNS-321-rev-Ax DNS-343 DNS-325-rev-Ax DNS-320-rev-Ax DNS-320-rev-Bx DNS-320L-rev-Ax DNS-327L-rev-Ax DNR-322L-rev-Ax)
+working=(y y y y n y y y y y y)
 
 # the buildroot boards .config used
 # better call it arch: orion (dns321/323), kirkwood(dns320/320L/325), armada-370(dns-327L)
-hwboard=(dns323 dns323 dns323 dns323 dns343 dns325 dns325 dns325 dns325 dns327)
+hwboard=(dns323 dns323 dns323 dns323 dns343 dns325 dns325 dns325 dns325 dns327 dns325)
 
 # the firmware file signatures
-prod=( 7 7 7 10 9 0 0  0  0 0)
-cust=( 1 2 3  1 1 8 8  8  8 8)
-model=(1 1 1  1 1 5 7 12 11 13)
-sub=(  1 1 1  2 2 2 2  1  1 1)
-nver=( 4 4 4  1 1 0 0  1  1 1)
-type=( 0 0 0  1 2 3 4  5  6 7)
+prod=( 7 7 7 10 9 0 0  0  0 0 1)
+cust=( 1 2 3  1 1 8 8  8  8 8 8)
+model=(1 1 1  1 1 5 7 12 11 13 2)
+sub=(  1 1 1  2 2 2 2  1  1 1 1)
+nver=( 4 4 4  1 1 0 0  1  1 1 1)
+type=( 0 0 0  1 2 3 4  5  6 7 8)
 
 # the amount of NAND flash bytes that u-boot copies to ram at bootm for each board
 # read the NOTE-2 bellow)
-kernel_max=(1572864 1572864 1572864 1572864 1572864 3145728 3145728 3145728 3145728 3145728)
-initramfs_max=(6488064 6488064 6488064 10485760 14417920 3145728 3145728 3145728 3145728 4194304)
-sqimage_max=(0 0 0 0 0 106954752 106954752 104857600 104857600 81788928)
+kernel_max=(1572864 1572864 1572864 1572864 1572864 3145728 3145728 3145728 3145728 3145728 3145728)
+initramfs_max=(6488064 6488064 6488064 10485760 14417920 3145728 3145728 3145728 3145728 4194304 3145728)
+xtra_image_max=(0 0 0 0 0 106954752 106954752 104857600 104857600 81788928 73400320)
 
 # some kernels need a prologue to change the device_id set by the bootloader
 # read NOTE-1 bellow
-#prez=(0606 0606 0606 0606 0606  "" ""  128a 128a)
-prez=(0606 0606 0606 0606 0606  "" "" "" "" "")
+prez=(0606 0606 0606 0606 0606  "" "" "" "" "" "")
 
 DTSDIR=${KERNEL}/arch/arm/boot/dts
 # other kernels needs an epilogue with a hardware device tree description
-#postz=("" "" "" "" "" kirkwood-dns325.dtb kirkwood-dns320.dtb "" "")
-postz=("" "" "" "" "" kirkwood-dns325.dtb kirkwood-dns320-a.dtb kirkwood-dns320-b.dtb kirkwood-dns320l.dtb armada-370-dlink-dns327l.dtb)
+postz=("" "" "" "" "" kirkwood-dns325.dtb kirkwood-dns320-a.dtb kirkwood-dns320-b.dtb kirkwood-dns320l.dtb armada-370-dlink-dns327l.dtb kirkwood-dnr322l-a.dtb)
 
 # NOTE-1: DNS-323/DNS-321:
 # Sets the cpu r1 to the machine ID, overriding the value that u-boot sets there.
@@ -274,18 +295,18 @@ for i in ${!name[*]}; do
 	if test $len -gt 0; then
 		check 1 "rootfs too big by $len bytes, max is ${initramfs_max[i]}"
 	fi
-	if test -n "$sq_opts"; then
-		len=$(expr $(stat -c %s "${DESTD}/$sqimage") - ${sqimage_max[i]})
+	if test -n "$xtra_opts"; then
+		len=$(expr $(stat -c %s "${DESTD}/$xtra_image") - ${xtra_image_max[i]})
 		if test $len -gt 0; then
-			check 1 "sqimage too big by $len, max is ${sqimage_max[i]}"
+			check 1 "$xtra_image too big by $len, max is ${xtra_image_max[i]}"
 		fi
 	fi
 
 	# merge kernel and initramfs (notice that dns323-fw only validates flash partitions sizes, not u-boot load limits)
 	dns323-fw -m -p ${prod[i]} -c ${cust[i]} -l ${model[i]} \
 		-u ${sub[i]} -v ${nver[i]} -t ${type[i]} \
-		-k ${DESTD}/uImage -i ${DESTD}/urootfs $sq_opts ${DESTD}/Alt-F-${VER}-${name[i]}.bin
-	check $? "merging (max: ${kernel_max[i]}/${initramfs_max[i]}/${sqimage_max[i]})"
+		-k ${DESTD}/uImage -i ${DESTD}/urootfs $xtra_opts ${DESTD}/Alt-F-${VER}-${name[i]}.bin
+	check $? "merging (max: ${kernel_max[i]}/${initramfs_max[i]}/${xtra_image_max[i]})"
 
 	# generate SHA1
 	(cd ${DESTD}; sha1sum Alt-F-${VER}-${name[i]}.bin > Alt-F-${VER}-${name[i]}.sha1)
@@ -307,9 +328,9 @@ for i in ${!name[*]}; do
 	err=$(mkimage -l initramfs 2>&1)
 	check $? "mkimage check: $err"
 
-	if test -n "$sq_opts"; then
-		cmp sqimage ${DESTD}/$sqimage
-		check $? "cmp sqimage"
+	if test -n "$xtra_opts"; then
+		cmp sqimage ${DESTD}/$xtra_image
+		check $? "cmp $xtra_image"
 	fi
 
 	# report kernel and initramfs available flash space
@@ -324,12 +345,13 @@ done
 (
 	cd ${DESTD};
 	cp urootfs $TFTPD/urootfs-$board
-	if test "$board" = dns325 -o "$board" = dns327; then
-		cp rootfs.arm.sqimage.xz $TFTPD/rootfs.arm.sqimage.xz-$board
+	if test \( $TYPE = "sqsplit" -o $TYPE = "ubisplit" \) -a \
+		\( "$board" = dns325 -o "$board" = dns327 \); then
+		cp rootfs.arm.sqimage.xz $TFTPD/sqimage-$board
 	fi
 )
 
-if ! test -d $TFTPD -a -w $TFTPD; then echo "WARNING: tftp folder non existing or writable. Only useful for users with serial adapter on the box and using u-boot."; fi
+if ! test -d $TFTPD; then echo "WARNING: \"$TFTPD\" tftp folder non existing. Only useful for users with serial adapter on the box and using u-boot."; fi
 
-rm -f kernel initramfs defaults \
+rm -f kernel initramfs sqimage defaults \
 	${DESTD}/urootfs ${DESTD}/uImage ${DESTD}/tImage ${DESTD}/tsqimage

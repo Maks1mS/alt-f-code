@@ -4,22 +4,24 @@
 #
 ###########################################################
 
-DROPBEAR_VERSION = 2020.81
+DROPBEAR_VERSION = 2024.85
 DROPBEAR_SOURCE = dropbear-$(DROPBEAR_VERSION).tar.bz2
 DROPBEAR_SITE = https://matt.ucc.asn.au/dropbear/releases
+
 DROPBEAR_DEPENDENCIES = uclibc zlib
 DROPBEAR_TARGET_BINS = dbclient dropbearkey dropbearconvert scp ssh
 DROPBEAR_MAKE =	$(MAKE) MULTI=1 SCPPROGRESS=1 \
 		PROGRAMS="dropbear dbclient dropbearkey dropbearconvert scp"
 
 DROPBEAR_CONF_ENV = CFLAGS="$(TARGET_CFLAGS) $(BR2_PACKAGE_DROPBEAR_OPTIM)"
-DROPBEAR_CONF_OPT = --disable-wtmp --disable-lastlog --disable-harden 
+DROPBEAR_CONF_OPT = --disable-lastlog --disable-harden 
 
 $(eval $(call AUTOTARGETS,package,dropbear))
 
 $(DROPBEAR_HOOK_POST_EXTRACT):
 	echo '#define SFTPSERVER_PATH "/usr/lib/sftp-server"' > $(DROPBEAR_DIR)/localoptions.h
-	echo '#define DROPBEAR_X11FWD 0' >> $(DROPBEAR_DIR)/localoptions.h
+	echo '#define DROPBEAR_SMALL_CODE 0' >> $(DROPBEAR_DIR)/localoptions.h
+	#echo '#define DROPBEAR_ENABLE_GCM_MODE 1' >> $(DROPBEAR_DIR)/localoptions.h
 	touch $@
 
 $(DROPBEAR_TARGET_INSTALL_TARGET):

@@ -5,5 +5,5 @@ Depends: neon, readline, ncurses, ipkg
 Architecture: arm
 Priority: optional
 Section: networking
-Source: http://www.webdav.org/cadaver/
+Source: https://www.webdav.org/cadaver/
 Maintainer: jcard

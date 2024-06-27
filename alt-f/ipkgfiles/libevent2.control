@@ -5,5 +5,5 @@ Version: 2.1.5
 Architecture: arm
 Priority: optional
 Section: libraries
-Source: http://monkey.org/~provos/
+Source: https://monkey.org/~provos/
 Maintainer: jcard

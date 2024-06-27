@@ -1,4 +1,4 @@
-./etc/init.d/S14btrfs
+./etc/init.d/S16btrfs
 ./usr/bin/btrfs
 ./usr/bin/btrfsck
 ./usr/bin/btrfs-convert

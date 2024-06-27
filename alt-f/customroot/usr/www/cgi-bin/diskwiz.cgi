@@ -160,10 +160,10 @@ cat<<-EOF
 		<td>fast cleaning time, improved reliability (ext3)</td></tr>
 	<tr><td align=center>
 		<input type=radio checked name=wish_fs value=ext4></td>
-		<td>recent, faster cleaning time, best reliability, low fragmentation, big files support (ext4)</td></tr>
+		<td>recent, faster cleaning time, best reliability, low fragmentation, big files support. Recommended. (ext4)</td></tr>
 	<tr><td align=center>
 		<input type=radio $btrfsdis name=wish_fs value=btrfs></td>
-		<td>modern, implementing advanced features while also focusing on fault tolerance, repair and easy administration (btrfs)</td></tr>
+		<td>modern, advanced features, fault tolerance, repair and "easy" administration. For experts. (btrfs)</td></tr>
 	</table></fieldset>
 
 	<input type=submit name=advise value=Abracadabra onclick="return validate('$ndisks')">

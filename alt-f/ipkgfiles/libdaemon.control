@@ -5,5 +5,5 @@ Description: A lightweight C library that eases the writing of UNIX daemons.
 Architecture: arm
 Priority: optional
 Section: libraries
-Source: http://0pointer.de/lennart/projects/libdaemon/
+Source: https://0pointer.de/lennart/projects/libdaemon/
 Maintainer: jcard

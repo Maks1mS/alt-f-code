@@ -99,16 +99,12 @@ elif test "$submit" = "Submit"; then
 
 	done  >> $CONF_SMB
 
-	if test "$enable_smb2" = yes; then
-		sed -i '/max protocol.*SMB2/s/.*/\tmax protocol = SMB2/' $CONF_SMB
-	else
-		sed -i '/max protocol.*SMB2/s/.*/\t#max protocol = SMB2/' $CONF_SMB
-	fi
+	sed -i '/max protocol/s/.*/\t#max protocol = SMB2/' $CONF_SMB
 
 	if test "$enable_smb1" = yes; then
-		sed -i '/min protocol.*SMB2/s/.*/\t#min protocol = SMB2/' $CONF_SMB
+		sed -i '/min protocol.*/s/.*/\tmin protocol = NT1/' $CONF_SMB
 	else
-		sed -i '/min protocol.*SMB2/s/.*/\tmin protocol = SMB2/' $CONF_SMB
+		sed -i '/min protocol.*/s/.*/\tmin protocol = SMB2/' $CONF_SMB
 	fi
 
 	if rcsmb status >& /dev/null; then

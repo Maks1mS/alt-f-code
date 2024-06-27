@@ -1,4 +1,3 @@
-./etc/init.d/S40portmap
 ./etc/init.d/S60nsm
 ./etc/init.d/S61nfs
 ./usr/sbin/start-statd

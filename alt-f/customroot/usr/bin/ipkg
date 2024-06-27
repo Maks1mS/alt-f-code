@@ -1,13 +1,19 @@
 #!/bin/sh
 
 CONFF=/etc/ipkg.conf
-IPKG_DIR=/usr/lib/ipkg
+
+IPKG_DIR="/usr/lib/ipkg"
+IPKG_ST="$IPKG_DIR/status"
+
+UBIROOT="/rootmnt/ubiimage"
+UBI_ST="$UBIROOT/$IPKG_ST"
 
 usage() {
 	echo "This is a frontend to ipkg. Use it always!
 Usage:
 	ipkg -install [<mount_point>]
-	ipkg -clean
+	ipkg -clean [root (default) | flash]
+	ipkg -repair [status file]
 	ipkg -update
 	ipkg -help
 	ipkg standard ipkg command"
@@ -23,19 +29,34 @@ msg() {
 	exit 1
 }
 
+# root | flash
 clean() {
-	if ! aufs.sh -s >& /dev/null; then
+	if test "$1" = "root" && ! aufs.sh -s >& /dev/null; then
 		return 0
 	fi
 
 	aufs.sh -n
-	if test -f /usr/bin/ipkg-cl; then
+	if test -x /usr/bin/ipkg-cl; then
 		for i in $(ipkg-cl -V0 list_installed | cut -f1 -d" "); do
+			inst_at=""
+			if grep -q "^Package:[[:space:]]*$i" $UBI_ST >& /dev/null; then
+				inst_at="flash"
+			elif grep -q "^Package:[[:space:]]*$i" $IPKG_ST; then
+				inst_at="root"
+			fi
+			if test "$inst_at" != "$1"; then continue; fi
+		
 			if test "$i" != "ipkg"; then
 				ipkg-cl -force-depends remove $i # >& /dev/null
 			fi
 		done
+		# FIXME: can't remove, flash has packages. change ipkg pkg install
 		ipkg-cl remove ipkg # >& /dev/null
+	fi
+	
+	if test "$1" = "flash"; then
+		aufs.sh -r
+		return 0
 	fi
 
 	if ! aufs.sh -u >& /dev/null; then 
@@ -63,28 +84,18 @@ clean() {
 		if ! aufs.sh -u >& /dev/null; then # no hope
 			echo "ipkg: can't umount aufs branch, exiting."
 			aufs.sh -r
-			rcall start >& /dev/null
+			#rcall start >& /dev/null
 			exit 1
 		fi
-		rcall start >& /dev/null
+		#rcall start >& /dev/null
 	fi
 	
 	rm -rf $(readlink -f /Alt-F) /Alt-F
 }
 
-install() {
-	echo Installing ipkg
-
-	DESTD=$(awk '/^dest/{print $3}' $CONFF)
-
-	if test "$DESTD" != "/Alt-F"; then
-		msg "Package destination directory must be /Alt-F"
-	fi
-
-	if ! test -d "$DESTD"; then
-		msg "Package destination directory not found."
-	fi
-
+download_extract() {
+	echo "Downloading and extracting ipkg"
+	
 	TMPD=$(mktemp -d -t)
 
 	if test -e /tmp/ipkg_*_arm.ipk; then
@@ -144,28 +155,114 @@ and no /tmp/ipkg_*_arm.ipk file found. Exiting"
 	
 	aufs.sh -n
 	tar -C /Alt-F -xzf data.tar.gz
-	mkdir -p /Alt-F/etc/init.d
 	aufs.sh -r
 
 	cd /
 	rm -rf $TMPD
+}
 
+install() {
+	echo Installing ipkg
+
+#	DESTD=$(awk '/^dest.*Alt-F/{print $3}' $CONFF)
+#
+#	if test "$DESTD" != "/Alt-F"; then
+#		msg "Package destination directory must be /Alt-F"
+#	fi
+
+#	if ! test -d "$DESTD"; then
+	if ! test -d "/Alt-F"; then
+		msg "Package destination directory /Alt-F not found."
+	fi
+
+	if ! test -x /usr/bin/ipkg-cl; then
+		download_extract
+	fi
+	
+	aufs.sh -n
+	mkdir -p /Alt-F/etc/init.d /Alt-F/usr/bin /Alt-F/usr/share/ipkg /Alt-F/usr/lib/ipkg/info
+	
+	#mkdir -p $IPKG_DIR
+	if test -s /etc/preinst.status; then
+		cat /etc/preinst.status >> /Alt-F/$IPKG_ST
+	fi
+	aufs.sh -r
+	
 	# "FIXME: remount /Alt-F with inotify bellow makes 3.10.32/3.18.21 crash, the *first* time"
-	mkdir -p /usr/lib/ipkg # this seems to solve the issue. Is it warming-up aufs?
+	#mkdir -p $IPKG_DIR # this seems to solve the issue. Is it warming-up aufs?
 	if test -z "$local"; then
 		aufs.sh -n
 		ipkg-cl update
-		ipkg-cl install ipkg
+#		ipkg-cl install ipkg
 		aufs.sh -r
 	fi
 
-	if test -s /etc/preinst.status; then
-		cat /etc/preinst.status >> $IPKG_DIR/status
-	fi
+#	if test -s /etc/preinst.status; then
+#		cat /etc/preinst.status >> $IPKG_ST
+#	fi
 
 	cat /etc/Alt-F > $IPKG_DIR/.fixed
 
 	exit 0
+}
+
+# remove duplicate pkgs, keeping the higher version one
+repair() {
+	awk '
+	/Package:/ { nm = $2; inst=""; pri=""; dep=""; es=""; cff=""; } # Package is first entry
+	/Conffiles:/ {
+		while (getline) { # getline to $0 means that following rules will be run
+			if (length($0) == 0 || index($0, "./") != 1)
+				break
+			cff = cff "\n" $0
+		}
+	}
+	/Version:/ { ver = $2 }
+	/Depends:/ { dep = substr($0, index($0, ":") + 2) }
+	/Architecture:/ { arc = $2 }
+	/Priority:/ { pri = $2 }
+	/Essential:/ { es = $2 }
+	/Installed-Time:/ { inst = $2 }
+	/Status:/ { st = substr($0, index($0, ":") + 2) }
+	/^$/ {
+		if (nm in pkg) {
+			if (system("ipkg-cl -V0 compare_versions " ver " \"<<\" " pkg[nm]) == 1)
+				next
+		}
+
+		pkg[nm] = ver
+		stat[nm] = st
+		arch[nm] = arc
+		deps[nm] = dep
+		prior[nm] = pri
+		ess[nm] = es
+		instt[nm] = inst
+		conf[nm] = cff
+	}
+	END {
+		for (i in pkg) {
+			printf("Package: %s\n", i)
+			printf("Version: %s\n", pkg[i])
+			if (length(deps[i]))
+				printf("Depends: %s\n", deps[i])
+			if (length(ess[i]))
+				printf("Essential: %s\n", ess[i])
+			printf("Architecture: %s\n", arch[i])
+			if (length(prior[i]))
+				printf("Priority: %s\n", prior[i])
+			printf("Status: %s\n", stat[i])
+			if (length(instt[i]))
+				printf("Installed-Time: %s\n", instt[i])
+			if (length(conf[i]))
+				printf("Conffiles:%s\n", conf[i])
+			printf("\n");
+		}
+	}' $1 > /tmp/po
+	# sort by pkg name
+	for i in $(grep Package: /tmp/po | sort -u | cut -f2 -d" "); do
+		sed -n "/Package: $i$/,/^$/p" /tmp/po
+	done > $IPK_ST
+	rm /tmp/po
 }
 
 # remove installed packages of same or lower version than a existing pre-installed package.
@@ -179,7 +276,7 @@ ipkg_upgrade() {
 	to_save=""
 
 	while read pkg pver; do
-		iver=$(awk '/Package:[[:space:]]*'$pkg'$/{getline; printf $2; exit 0}' $IPKG_DIR/status)
+		iver=$(awk '/Package:[[:space:]]*'$pkg'$/{getline; printf $2; exit 0}' $IPKG_ST)
 		echo $pkg:$pver:$iver:
 		if test -n "$iver" -a -n "$pver"; then
 			# return value from ipkg compare version is reversed,
@@ -221,79 +318,135 @@ ipkg_upgrade() {
 		# backup conf files
 		for i in $to_save; do cp /$i /$i.bck; done
 		aufs.sh -n
-		ipkg-cl -force-depends remove $to_rm
-		ipkg-cl -force-depends remove $to_rm # dooh!
+		# dooh! looks like lists are being rebuild each time and it will eventually work
+		ipkg-cl -force-depends remove $to_rm $to_rm $to_rm
 		aufs.sh -r
 		# restore conf-files 
 		for i in $to_save; do mv /$i.bck /$i; done
 	fi
 
 	if test -s /etc/preinst.status; then
-		cat /etc/preinst.status >> $IPKG_DIR/status
+		cat /etc/preinst.status >> $IPKG_ST
 	fi
 }
 
-if test "$#" != 0 -a "$1" = "-clean"; then
-	clean
+# fix dest
 
-elif test "$#" != 0 -a "$1" = "-install"; then
-	if test $# = 1 -a "$(aufs.sh -s)" != "OK"; then
-		echo "/Alt-F does not exists or is not an aufs branch."
-		echo "you must supply a mountpoint where to install ipkg."
-		exit 1
+# if echo $board | grep -qE "DNR-322L|DNS-320|DNS-325|DNS-327L"; then
+# 	if mount | grep -q $SQROOT; then
+# 		cat /etc/preinst-sq >> /etc/preinst
+# 		cat /etc/preinst-sq.status >> /etc/preinst.status
+# 		cat /etc/preinst-sq.status >> $IPKG_ST
+# 	elif ! mount | grep -q $UBIROOT; then
+# 		echo "<li>UBI failed, minimum system loaded.</li>" >> $SERRORL
+# 	fi
+# fi
 
-	elif test $# = 1 -a "$(aufs.sh -s)" = "OK"; then
-		install
+if ! test -f $IPKG_ST || cmp -s $UBI_ST $IPKG_ST; then
+	mkdir -p $IPKG_DIR
+	cat /etc/preinst.status >> $IPKG_ST
+fi
 
-	elif test $# = 2 -a "$(aufs.sh -s)" = "OK"; then
-		echo "Alt-F already exists, you shouldn't supply a mountpoint."
-		exit 1
+# replace old /Alt-F dest with 'root'
+if grep -q '^dest /Alt-F' $CONFF; then
+	sed -i "s|dest /Alt-F.*$|dest root /|" $CONFF 
+fi
 
-	elif test "$#" != 2; then
-		usage
-	
-	elif ! $(mountpoint -q $2); then
-		echo "\"$2\" is not a mountpoint."
-		exit 1
-
-	else
-		aufs.sh -i $2 && install
-		exit $?
+# adjust ipkg packages destination, depending on UBI
+if mount -t ubifs | grep -qw $UBIROOT; then
+	if ! grep -q '^dest flash' $CONFF; then
+		sed -i "/dest root/a dest flash $UBIROOT" $CONFF
 	fi
+elif grep -q "^dest flash"  $CONFF; then
+	sed -i '/^dest flash/d' $CONFF
+fi
 
-elif test "$#" != 0 -a "$1" = "-update"; then
+# adjust architecture
+arch=$(uname -m); arch=${arch:0:5}
+if ! grep -q '^arch' $CONFF; then
+	echo "arch arm 100" >> $CONFF
+fi
+if ! grep -q "^arch $arch" $CONFF; then
+	echo "arch $arch 200" >> $CONFF
+fi
+
+if test "$1" = "-clean"; then
+	if test $# = "1"; then
+		dest_loc="root"
+	elif test "$2" = "flash"; then
+		dest_loc="flash"
+	elif test "$2" = "root"; then
+		dest_loc="root"
+	else
+		usage
+	fi
+	clean "$dest_loc"
+
+elif test "$1" = "-install"; then
+	
+	if aufs.sh -s; then
+		if test $# != 1; then
+			echo "Alt-F already exists, you shouldn't supply a mountpoint."
+			exit 1
+		else
+			install
+		fi
+	else
+		if test $# != 2; then
+			echo "/Alt-F does not exists or is not an aufs branch."
+			echo "you must supply a mountpoint where to install ipkg."
+			exit 1
+		elif ! mountpoint -q "$2"; then
+			echo "\"$2\" is not a mountpoint."
+			exit 1
+		else
+			aufs.sh -i "$2" && install
+			exit $?
+		fi
+	fi
+	
+elif test "$1" = "-update"; then
 	# this only needs to be done once for a new firmware upgrade
 	if test "$(cat $IPKG_DIR/.fixed 2> /dev/null)" != $(cat /etc/Alt-F) ; then
 		ipkg_upgrade
 		cat /etc/Alt-F > $IPKG_DIR/.fixed
 	fi
 
-elif test "$#" != 0 -a "$1" = "-help"; then
+elif test "$1" = "-repair"; then
+	rpd=$IPKG_ST
+	if test "$2"; then
+		rpd="$2"
+	fi
+	repair $rpd
+	
+elif test "$1" = "-help"; then
 	usage
 
-elif test -f /usr/bin/ipkg-cl; then
+# normal ipkg command
+elif test -f /usr/bin/ipkg-cl; then # && readlink -f /Alt-F >& /dev/null; then
+	
 	# removing a package if it is preinstalled requires ressurrecting/reinstalling it
-	if echo $* | grep -q '[[:space:]]*remove[[:space:]]*'; then
+	if echo $* | grep -qw 'remove'; then
 		pkg=$(eval echo \$$#)   # assume pkg is last command argument
 		# some packages have a rcscript, remake it if it exists
-		if test -f /usr/lib/ipkg/info/$pkg.list && grep -q /etc/init.d/S.* /usr/lib/ipkg/info/$pkg.list; then
-			rclink=$(grep -ho '/sbin/rc.*' /usr/lib/ipkg/info/$pkg.postrm 2> /dev/null)
+		if test -f $IPKG_DIR/info/$pkg.list && grep -q /etc/init.d/S.* $IPKG_DIR/info/$pkg.list; then
+			rclink=$(grep -ho '/sbin/rc.*' $IPKG_DIR/info/$pkg.postrm 2> /dev/null)
 		fi
 	fi
 
 	aufs.sh -n
 	ipkg-cl $*
-	res=$?
+	ret=$?
 	aufs.sh -r
 
 	if test -n "$pkg" -a -f /etc/preinst.status && grep -q "Package:[[:space:]]*$pkg$" /etc/preinst.status; then
 		if test -n "$rclink"; then
 			ln -sf /usr/sbin/rcscript $rclink
 		fi
-		sed -n "/Package: $pkg/,/^$/p" /etc/preinst.status >> /usr/lib/ipkg/status
+		sed -n "/Package: $pkg/,/^$/p" /etc/preinst.status >> $IPKG_ST
 	fi      
 
-	exit $res
+	exit $ret
 
 else
 	usage

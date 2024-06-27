@@ -7,7 +7,7 @@ read_args
 DNSMASQ_F=/etc/dnsmasq.conf
 DNSMASQ_O=/etc/dnsmasq-opts
 DNSMASQ_R=/etc/dnsmasq-resolv
-FLG_MSG="#!in use by dnsmasq, don't change"
+FLG_MSG="#!# in use by dnsmasq, don't change"
 
 CONFH=/etc/hosts
 CONFR=/etc/resolv.conf
@@ -15,7 +15,7 @@ CONFS=/etc/samba/smb.conf
 CONFHTTP=/etc/httpd.conf
 CONFINT=/etc/network/interfaces
 CONF_MODPROBE=/etc/modprobe.conf
-CONF_MISC=/etc/misc.conf
+CONF_MOD=/etc/modules
 
 #debug
 
@@ -23,15 +23,15 @@ if test -f $CONF_MODPROBE; then
 	sed -i '/^blacklist.*ipv6/d' $CONF_MODPROBE
 fi
 
-if test -f "$CONF_MISC"; then
-	sed -i '/^MODLOAD_IPV6=/d' $CONF_MISC
+if test -f "$CONF_MOD"; then
+	sed -i '/^ipv6/d' $CONF_MOD
 fi
 
 if test -z "$ipv6"; then
 	echo "blacklist ipv6" >> $CONF_MODPROBE
 	sed -i '/::/d' $CONFH
 else
-	echo "MODLOAD_IPV6=y" >> $CONF_MISC
+	echo "ipv6" >> $CONF_MOD
 	modprobe ipv6 >& /dev/null
 	if ! grep -q ipv6-localhost $CONFH; then
 	cat<<-EOF >> $CONFH
@@ -45,26 +45,42 @@ else
 	fi
 fi
 
+for i in hostip netmask gateway ns1 ns2; do
+	arg="$(eval echo \$$i)"
+	if test -n "$arg"; then
+		arg=$(trimspaces $(httpd -d "$arg"))
+		eval $(echo "$i=\"$arg\"")
+		
+		if ! checkip "$arg"; then
+			msg "$i $arg must be an IP in the form x.x.x.x where x is a number between 0 and 255."
+		fi
+	fi
+done
+
 if test "$iptype" = "static"; then
 	if ! arping -Dw 2 $hostip >& /dev/null; then
 		msg "The IP $hostip is already in use by another computer."
 	fi
 fi
 
-html_header "Reconfiguring network..."
-echo '<h4 class="warn" id="msgid"></h4>'
-busy_cursor_start
-
-domain=$(httpd -d "$domain")
-hostname=$(httpd -d "$hostname")
+domain=$(trimspaces $(httpd -d "$domain"))
+hostname=$(trimspaces $(httpd -d "$hostname"))
 
 if test -z "$mtu"; then mtu=1500; fi
 if test -z "$hostname"; then hostname=$(cat /tmp/board); fi
 if test -z "$domain"; then domain="localnet"; fi
-if test -z "$ns1"; then ns1=$gateway; fi
+#if test -z "$ns1"; then ns1=$gateway; fi
 
-hostname $hostname
+if ! $(checkname "$hostname"); then
+	msg "The host name can only have letters, digits, hyphens, no spaces, and must begin with a letter."
+fi
+
+html_header "Reconfiguring network..."
+echo '<h4 class="warn" id="msgid"></h4>'
+busy_cursor_start
+
 echo $hostname > /etc/hostname
+hostname -F /etc/hostname
 
 # remove entries with oldip and oldname 
 sed -i "/^[^#].*$oldname$/d" $CONFH
@@ -72,9 +88,20 @@ sed -i "/^$oldip[ \t]/d" $CONFH
 # even if incorrect with old ip (dhcp), host and domain are correct
 echo "$oldip $hostname.$domain $hostname" >> $CONFH
 
-if test -z "$dnsmasq_flg"; then
+if test -n "$dnsmasq_flg"; then
+	cat<<-EOF > $CONFR
+		$FLG_MSG
+		search $domain
+		nameserver 127.0.0.1
+		nameserver $ns1
+	EOF
+	if test -n "$ns2"; then echo "nameserver $ns2" >> $CONFR; fi
+	test -f $DNSMASQ_R && echo -e "search $domain\nnameserver $ns1" > $DNSMASQ_R
+	test -f $DNSMASQ_R && test -n "$ns2" && echo "nameserver $ns2" >> $DNSMASQ_R
+else
 	if test "$iptype" = "static"; then
-		echo -e "search $domain\nnameserver $ns1" > $CONFR
+		echo "search $domain" > $CONFR
+		echo "nameserver $ns1" >> $CONFR
 		if test -n "$ns2"; then echo "nameserver $ns2" >> $CONFR; fi
 	else
 		echo "search $domain" > $CONFR-
@@ -87,21 +114,11 @@ if test -z "$dnsmasq_flg"; then
 		done
 		mv $CONFR- $CONFR
 	fi
-else
-	cat<<-EOF > $CONFR
-		$FLG_MSG
-		search $domain
-		nameserver 127.0.0.1
-		#!nameserver $ns1
-	EOF
-	if test -n "$ns2"; then echo "#!nameserver $ns2" >> $CONFR; fi
-	test -f $DNSMASQ_R && echo -e "search $domain\nnameserver $ns1" > $DNSMASQ_R
-	test -f $DNSMASQ_R && test -n "$ns2" && echo "nameserver $ns2" >> $DNSMASQ_R
 fi
 
 if test "$iptype" = "static"; then
-	eval $(ipcalc -n "$hostip" "$netmask") # evaluate NETWORK
-	eval $(ipcalc -b "$hostip" "$netmask") # evaluate  BROADCAST
+	eval $(ipcalc -bns "$hostip" "$netmask") # evaluate NETWORK and BROADCAST
+	#eval $(ipcalc -bs "$hostip" "$netmask") # evaluate  BROADCAST
 
 	test -f $DNSMASQ_F && sed -i '/^domain=/d' $DNSMASQ_F
 	test -f $DNSMASQ_F && echo "domain=$domain" >> $DNSMASQ_F
@@ -199,16 +216,31 @@ cat<<-EOF
 	}
 
 	if (cross) {
-		document.getElementById('msgid').innerHTML = 'The box IP, name or protocol have changed.<br>If the page does not load within a minute, point your browser to <em>' + server + '</em><br>or consult your DHCP server to know the box new IP.<br>If using https the browser might complain that the new connection is insecure.'
+		document.getElementById('msgid').innerHTML = 'The box IP, name or protocol have changed.<br>If the page does not load within a minute, you can try pointing your browser to <em>' + server + '</em><br>or consult your DHCP server to know the box new IP.<br>If using https the browser might complain that the new connection is insecure.'
 	}
 
 	setTimeout(testServer, 10000)
 	</script></body></html>
 EOF
 
+# sometimes udhcpc survives an ifdown. If alive, sometimes it releases a static
+# IP if it is equal to the previous dynamic IP. So kill it before the ifdown. 
+#if test "$iptype" = "static" -a "$iptype" != "$oldiptype"; then
+	if pidd=$(pidof udhcpc); then
+		kill -USR2 $pidd
+		kill $pidd
+	fi
+#fi
+
 ifdown -f eth0 >& /dev/null
 
 ifup -f eth0 >& /dev/null
+
+# generate new box certificates
+if test "$hostname" != "$oldname" -o "$hostip" != "$oldip"; then
+	rm -f /etc/ssl/certs/server.*
+	rcsslcert start >& /dev/null
+fi
 
 # FIXME: the following might not be enough.
 # FIXME: Add 'reload' to all /etc/init.d scripts whose daemon supports it
@@ -222,5 +254,7 @@ fi
 if rcdnsmasq status >& /dev/null; then
 	rcdnsmasq reload  >& /dev/null
 fi
+
+#enddebug
 
 firstboot /cgi-bin/host.cgi

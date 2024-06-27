@@ -71,11 +71,42 @@ $(PERL_DIR)/.stamp_installed: $(PERL_DIR)/.stamp_build
 # perl for the host
 
 PERL_HOST_INSTALL_OPT = install.perl
+PERL_HOST_DEPENDENCIES = expat-host
 
 $(eval $(call AUTOTARGETS_HOST,package,perl))
 
 $(PERL_HOST_CONFIGURE):
 	( cd $(PERL_HOST_DIR); ./configure.gnu --prefix=$(HOST_DIR)/usr )
+	touch $@
+
+# build perl module: name, version, pkg, site
+define PERL_MODULE
+	$(call DOWNLOAD,$(4),$(3))
+	$(ZCAT) $(DL_DIR)/$(3) | tar -C $(BUILD_DIR) $(TAR_OPTIONS) -
+	(cd $(BUILD_DIR)/$(1)-$(2) ; \
+		$(HOST_CONFIGURE_OPTS) perl Makefile.PL \
+			EXPATLIBPATH=$(HOST_DIR)/usr/lib \
+			EXPATINCPATH=$(HOST_DIR)/usr/include \
+	)
+	$(HOST_MAKE_ENV) $(MAKE) -C $(BUILD_DIR)/$(1)-$(2)
+	$(HOST_MAKE_ENV) $(MAKE) -C $(BUILD_DIR)/$(1)-$(2) install
+endef
+
+# building XML::Parser for the host (needed by avahi)
+PERL_XML_PARSER_NAME=XML-Parser
+PERL_XML_PARSER_VERSION=2.44
+PERL_XML_PARSER_SOURCE=$(PERL_XML_PARSER_NAME)-$(PERL_XML_PARSER_VERSION).tar.gz
+PERL_XML_PARSER_SITE=https://cpan.metacpan.org/authors/id/T/TO/TODDR
+
+# samba4 also needs Parse::Yapp for the host
+PERL_PARSE_YAPP_NAME=Parse-Yapp
+PERL_PARSE_YAPP_VERSION=1.21
+PERL_PARSE_YAPP_SOURCE=$(PERL_PARSE_YAPP_NAME)-$(PERL_PARSE_YAPP_VERSION).tar.gz
+PERL_PARSE_YAPP_SITE=https://cpan.metacpan.org/authors/id/W/WB/WBRASWELL
+
+$(PERL_HOST_HOOK_POST_INSTALL):
+	$(call PERL_MODULE,$(PERL_XML_PARSER_NAME),$(PERL_XML_PARSER_VERSION),$(PERL_XML_PARSER_SOURCE),$(PERL_XML_PARSER_SITE))
+	$(call PERL_MODULE,$(PERL_PARSE_YAPP_NAME),$(PERL_PARSE_YAPP_VERSION),$(PERL_PARSE_YAPP_SOURCE),$(PERL_PARSE_YAPP_SITE))
 	touch $@
 
 #####################

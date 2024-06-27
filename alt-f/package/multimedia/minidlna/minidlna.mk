@@ -4,7 +4,7 @@
 #
 #############################################################
 
-MINIDLNA_VERSION = 1.3.0
+MINIDLNA_VERSION = 1.3.2
 MINIDLNA_SOURCE = minidlna-$(MINIDLNA_VERSION).tar.gz
 MINIDLNA_SITE = $(BR2_SOURCEFORGE_MIRROR)/project/minidlna/minidlna/$(MINIDLNA_VERSION)
 
@@ -23,9 +23,10 @@ MINIDLNA_CONF_ENV = LIBEXIF_LIBS=-lexif
 
 $(eval $(call AUTOTARGETS,package/multimedia,minidlna))
 
-$(MINIDLNA_HOOK_POST_CONFIGURE):
-	sed -i 's|^#define USE_DAEMON.*|/* & */|' $(MINIDLNA_DIR)/config.h
-	touch $@
+# daemon()/daemonize() not working, use -S cmdline option instead
+#$(MINIDLNA_HOOK_POST_CONFIGURE):
+#	sed -i 's|^#define USE_DAEMON.*|/* & */|' $(MINIDLNA_DIR)/config.h
+#	touch $@
 
 $(MINIDLNA_HOOK_POST_INSTALL):
 	mv $(TARGET_DIR)/usr/sbin/minidlnad $(TARGET_DIR)/usr/sbin/minidlna 

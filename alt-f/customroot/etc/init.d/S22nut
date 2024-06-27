@@ -29,6 +29,8 @@
 # this script is UNTESTED!     #
 # please fixit and report back #
 ################################
+# Konstantin Slipenko <kslipenko gmail com> contributed with some fixes
+
 
 NAME=nut
 DESC="Network UPS Tools"
@@ -62,9 +64,10 @@ fi
 
 check_user
 
-# secure configuartion files, they contain passwords
+# secure configuration files, they contain passwords
 chown -R ups:nut $CONF_DIR
 chmod -R 640 $CONF_DIR
+chmod 750 $CONF_DIR # against NUT recomendation!
 
 mode=$(sed -n '/^MODE/s/.*=[[:space:]]*\(.*\)[[:space:]]*/\1/p' $NUT_CONF)
 if test "$mode" = "none"; then
@@ -94,30 +97,30 @@ case "$1" in
 			fi
 
 			# should upsd be started as root? it will drop privileges
-			if ! res=$(RC_PIDFILE=$RUN_DIR/upsd.pid start upsd --chuid $RC_USER:$RC_GROUP); then
+			if ! res=$(RC_PIDFILE=$STATE_DIR/upsd.pid start upsd --chuid $RC_USER:$RC_GROUP); then
 				$DRV_DIR/upsdrvctl stop >& /dev/null
 				rm -f $RUN_DIR/upsdrvctl
 				echo "$res"
 				exit 1
 			fi
 		fi
-		start upsmon
+		RC_PIDFILE=$RUN_DIR/upsmon.pid start upsmon
 		;;
 
 	stop)
 		# use '-c stop'?
-		stop upsmon
+		RC_PIDFILE=$RUN_DIR/upsmon.pid stop upsmon
 		if test "$mode" = "standalone" -o "$mode" = "netserver"; then
-			RC_PIDFILE=$RUN_DIR/upsd.pid stop upsd
+			RC_PIDFILE=$STATE_DIR/upsd.pid stop upsd
 			$DRV_DIR/upsdrvctl stop >& /dev/null
 			rm -f $RUN_DIR/upsdrvctl
 		fi
 		;;
 
 	status)
-		status upsmon
+		RC_PIDFILE=$RUN_DIR/upsmon.pid status upsmon
 		if test "$mode" = "standalone" -o "$mode" = "netserver"; then
-			status upsd
+			RC_PIDFILE=$STATE_DIR/upsd.pid status upsd
 		fi
 		;;
 

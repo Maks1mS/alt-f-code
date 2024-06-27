@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/sh
 
 sed -i "\|/usr/sbin/sshd|d" /etc/inetd.conf
 rcinetd reload

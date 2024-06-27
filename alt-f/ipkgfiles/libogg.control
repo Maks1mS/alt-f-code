@@ -5,5 +5,5 @@ Description: A multimedia container format, and the native file and stream forma
 Architecture: arm
 Priority: optional
 Section: libraries
-Source: http://www.xiph.org/ogg/
+Source: https://www.xiph.org/ogg/
 Maintainer: jcard

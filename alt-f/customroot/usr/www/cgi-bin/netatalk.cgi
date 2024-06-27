@@ -6,6 +6,33 @@ write_header "Netatalk Setup"
 
 CONF_NETA=/etc/afp.conf
 
+# the shipped configuration file needs some adjustments
+if grep -qE '^[^#].*[[:space:]]*=[[:space:]]*/(Public|Backup|home)' $CONF_NETA ; then
+	# replace /home by its real path
+	if rh=$(realpath /home 2>/dev/null); then
+		sed -i "s|^[[:space:]]*basedir regex[[:space:]]*=[[:space:]]*/home.*$|\tbasedir regex = $rh|" $CONF_NETA
+	fi
+
+	# replace /Public by its real path, or comment it
+	if rp=$(realpath /Public 2>/dev/null); then
+		sed -i "s|^[[:space:]]*path[[:space:]]*=[[:space:]]*/Public/|\tpath = $rp/|" $CONF_NETA
+	else
+		sed -i '/^\[Public Read.*\]/,/^$/s/^/#&/' $CONF_NETA
+	fi
+
+	# replace /Backup by its real path, or comment it
+	if rb=$(realpath /Backup 2>/dev/null); then
+		sed -i "s|^[[:space:]]*path[[:space:]]*=[[:space:]]*/Backup|\tpath = $rb|" $CONF_NETA
+		if ! test -d /Backup/TM; then
+			mkdir /Backup/TM
+			chown backup:backup /Backup/TM
+		fi
+	else
+		sed -i '/^\[Backup\]/,/^$/s/^/#&/' $CONF_NETA
+		sed -i '/^\[Time Machine\]/,/^$/s/^/#&/' $CONF_NETA
+	fi
+fi
+
 if grep -q '^\[Homes\]' $CONF_NETA; then
 	user_chk="checked"
 fi

@@ -82,7 +82,7 @@ done < deb-mirrors.txt
 if test -z "$part"; then
 	part=$(basename $dbpart)
 	if ! test -f /dev/$part; then
-		part="$(basename $(awk '/'$part'/{print $1}' /proc/mounts))"
+		part="$(basename $(awk '/\/dev\/'$part'[[:space:]]/{print $1}' /proc/mounts))"
 	fi
 fi
 

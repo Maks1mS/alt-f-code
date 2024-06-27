@@ -8,5 +8,5 @@ Version: 1.6.6-4
 Architecture: arm
 Priority: optional
 Section: libraries
-Source: http://pupnp.sourceforge.net/
+Source: https://pupnp.sourceforge.io
 Maintainer: jcard

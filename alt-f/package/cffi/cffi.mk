@@ -4,9 +4,12 @@
 #
 ############################################################
 
-CFFI_VERSION = 1.11.2
+#CFFI_VERSION = 1.11.2
+CFFI_VERSION = 1.13.0
 CFFI_SOURCE = cffi-$(CFFI_VERSION).tar.gz
-CFFI_SITE = https://pypi.python.org/packages/c9/70/89b68b6600d479034276fed316e14b9107d50a62f5627da37fafe083fde3
+
+#CFFI_SITE = https://pypi.python.org/packages/c9/70/89b68b6600d479034276fed316e14b9107d50a62f5627da37fafe083fde3
+CFFI_SITE = https://files.pythonhosted.org/packages/d6/cf/ba7e2df852a2fc807d48b3f7bea46f741830be4f047a0712e6de3e95fb6a
 
 CFFI_AUTORECONF = NO
 CFFI_INSTALL_STAGING = NO
@@ -18,7 +21,7 @@ CFFI_CAT:=$(ZCAT)
 
 CFFI_BINARY:=_cffi_backend.so
 CFFI_SITE_PACKAGE_DIR=usr/lib/python$(PYTHON_VERSION_MAJOR)/site-packages/cffi
-CFFI_TARGET_BINARY:=$(CFFI_SITE_PACKAGE_DIR)/../$(CFFI_BINARY)
+CFFI_TARGET_BINARY=$(CFFI_SITE_PACKAGE_DIR)/../$(CFFI_BINARY)
 
 CFFI_CFLAGS = CFLAGS+=" -I$(STAGING_DIR)/usr/include/python$(PYTHON_VERSION_MAJOR)"
 
@@ -34,6 +37,7 @@ $(CFFI_DIR)/.patched: $(CFFI_DIR)/.unpacked
 	touch $@
 
 $(CFFI_DIR)/.build: $(CFFI_DIR)/.patched
+	pip install cffi  # shortcut to install cffi in HOST_DIR
 	(cd $(CFFI_DIR); \
 		$(TARGET_CONFIGURE_OPTS) $(TARGET_CONFIGURE_ENV) LDSHARED="$(TARGET_CC) -shared" $(CFFI_CFLAGS) \
 		LD_LIBRARY_PATH=$(HOST_DIR)/usr/lib/ $(HOST_DIR)/usr/bin/python setup.py \
@@ -44,14 +48,15 @@ $(CFFI_DIR)/.build: $(CFFI_DIR)/.patched
 $(TARGET_DIR)/$(CFFI_TARGET_BINARY): $(CFFI_DIR)/.build
 	tar -C $(TARGET_DIR)/usr -xf $(CFFI_DIR)/dist/cffi-$(CFFI_VERSION).$(GNU_TARGET_NAME).tar.gz
 	find $(TARGET_DIR)/$(CFFI_SITE_PACKAGE_DIR) -name \*.pyc -delete
+	touch $(TARGET_DIR)/$(CFFI_TARGET_BINARY)
 
-cffi: uclibc python libffi $(TARGET_DIR)/$(CFFI_TARGET_BINARY)
+cffi: libffi python $(TARGET_DIR)/$(CFFI_TARGET_BINARY)
 
 cffi-unpack: $(CFFI_DIR)/.unpacked
 
-cffi-build: $(CFFI_DIR)/.build
+cffi-build: libffi python $(CFFI_DIR)/.build
 
-cffi-install: $(TARGET_DIR)/$(CFFI_TARGET_BINARY)
+cffi-install: libffi python $(TARGET_DIR)/$(CFFI_TARGET_BINARY)
 
 cffi-dirclean:
 	rm -rf $(CFFI_DIR)

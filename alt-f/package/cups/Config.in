@@ -1,9 +1,11 @@
 config BR2_PACKAGE_CUPS
 	bool "cups"
-	select BR2_PACKAGE_LIBUSB
-	select BR2_PACKAGE_JPEG
-	select BR2_PACKAGE_LIBPNG
-	select BR2_PACKAGE_TIFF
+	select BR2_PACKAGE_LIBUSB1
+	select BR2_PACKAGE_AVAHI
+	#select BR2_PACKAGE_JPEG_LIBS
+	#select BR2_PACKAGE_LIBPNG
+	#select BR2_PACKAGE_TIFF
+	#select BR2_PACKAGE_CUPS_FILTERS
 	help
 	  The Common Unix Printing System
 

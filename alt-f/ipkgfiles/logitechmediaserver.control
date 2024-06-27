@@ -5,5 +5,5 @@ Depends: perl, sox-progs, flac, faad2-progs, wavpack-progs, shine, ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.mysqueezebox.com/download
+Source: https://www.mysqueezebox.com/download
 Maintainer: jcard

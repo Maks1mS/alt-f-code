@@ -4,7 +4,10 @@
 #
 #############################################################
 
-SVN_VERSION = 1.7.7
+#SVN_VERSION = 1.7.7
+SVN_VERSION = 1.7.22
+#SVN_VERSION = 1.10.6
+
 SVN_SITE = http://archive.apache.org/dist/subversion
 SVN_SOURCE = subversion-$(SVN_VERSION).tar.bz2
 
@@ -19,6 +22,7 @@ SVN_MAKE_OPT = -j1
 
 SVN_CONF_OPT = --with-apr=$(STAGING_DIR)/usr/bin/apr-1-config \
 	--with-apr-util=$(STAGING_DIR)/usr/bin/apu-1-config \
+	--with-neon=$(STAGING_DIR)/usr --disable-neon-version-check \
 	--disable-static
 
 SVN_INSTALL_TARGET_OPT = $(SVN_MAKE_OPT) DESTDIR=$(TARGET_DIR) install

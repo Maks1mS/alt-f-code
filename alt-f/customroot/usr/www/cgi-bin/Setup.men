@@ -6,3 +6,4 @@ Hosts|hosts.cgi
 Users|usersgroups.cgi
 Debian|debian.cgi
 Folders|browse_dir.cgi?wind=no?browse=/mnt
+Certificates|certs.cgi

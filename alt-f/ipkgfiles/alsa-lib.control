@@ -5,5 +5,5 @@ Depends: ipkg, kernel-modules
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.alsa-project.org/
+Source: https://www.alsa-project.org
 Maintainer: jcard

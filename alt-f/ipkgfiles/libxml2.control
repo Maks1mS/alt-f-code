@@ -5,5 +5,5 @@ Description: XML C parser and toolkit of Gnome
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://xmlsoft.org/
+Source: https://gitlab.gnome.org/GNOME/libxml2
 Maintainer: jcard

@@ -86,7 +86,7 @@ config BR2_KERNEL_SITE
 
 config BR2_MM_PATCH_SITE
 	string
-	default "http://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6"
+	default "https://www.kernel.org/pub/linux/kernel/people/akpm/patches/2.6"
 
 config BR2_MM_PATCH_DIR
 	string

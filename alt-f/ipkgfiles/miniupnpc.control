@@ -5,5 +5,5 @@ Depends: ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://miniupnp.free.fr
+Source: https://miniupnp.free.fr
 Maintainer: jcard

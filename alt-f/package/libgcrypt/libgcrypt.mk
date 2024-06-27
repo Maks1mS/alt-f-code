@@ -4,7 +4,7 @@
 #
 #############################################################
 #LIBGCRYPT_VERSION:=1.2.4
-LIBGCRYPT_VERSION:=1.5.0
+LIBGCRYPT_VERSION:=1.5.6
 LIBGCRYPT_SOURCE:=libgcrypt-$(LIBGCRYPT_VERSION).tar.bz2
 LIBGCRYPT_SITE:=https://www.gnupg.org/ftp/gcrypt/libgcrypt
 LIBGCRYPT_DIR:=$(BUILD_DIR)/libgcrypt-$(LIBGCRYPT_VERSION)
@@ -47,6 +47,9 @@ $(LIBGCRYPT_DIR)/.configured: $(LIBGCRYPT_DIR)/.source
 		--mandir=/usr/share/man \
 		--infodir=/usr/share/info \
 		--disable-optimization \
+		--disable-asm \
+		--disable-padlock-support \
+		--disable-aesni-support \
 		--program-prefix="" \
 		--with-gpg-error-prefix=$(STAGING_DIR)/usr \
 	)
@@ -58,6 +61,7 @@ $(LIBGCRYPT_DIR)/$(LIBGCRYPT_LIBRARY): $(LIBGCRYPT_DIR)/.configured
 $(STAGING_DIR)/$(LIBGCRYPT_TARGET_LIBRARY): $(LIBGCRYPT_DIR)/$(LIBGCRYPT_LIBRARY)
 	$(MAKE) $(TARGET_CONFIGURE_OPTS) DESTDIR=$(STAGING_DIR) -C $(LIBGCRYPT_DIR) install
 	$(SED) "s,^libdir=.*,libdir=\'$(STAGING_DIR)/usr/lib\',g" $(STAGING_DIR)/usr/lib/libgcrypt.la
+	cp $(STAGING_DIR)/usr/bin/libgcrypt-config $(HOST_DIR)/usr/bin
 	touch -c $@
 
 $(TARGET_DIR)/$(LIBGCRYPT_TARGET_LIBRARY): $(STAGING_DIR)/$(LIBGCRYPT_TARGET_LIBRARY)

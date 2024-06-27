@@ -1,3 +1,4 @@
+./etc/init.d/S39iptables
 ./etc/xtables
 ./etc/xtables/connlabel.conf
 ./usr/bin/iptables-xml

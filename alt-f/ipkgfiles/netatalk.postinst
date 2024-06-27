@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/sh
 
 ln -sf /usr/sbin/rcscript /sbin/rcnetatalk
 rcnetatalk status

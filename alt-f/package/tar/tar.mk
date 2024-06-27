@@ -38,16 +38,16 @@ TAR_CONF_ENV += DEFAULT_ARCHIVE_FORMAT=POSIX \
 
 ifeq ($(BR2_PACKAGE_ACL),y)
 TAR_DEPENDENCIES += acl
-TAR_CONF_OPTS += --with-posix-acls
+TAR_CONF_OPT += --with-posix-acls
 else
-TAR_CONF_OPTS += --without-posix-acls
+TAR_CONF_OPT += --without-posix-acls
 endif
 
 ifeq ($(BR2_PACKAGE_ATTR),y)
 TAR_DEPENDENCIES += attr
-TAR_CONF_OPTS += --with-xattrs
+TAR_CONF_OPT += --with-xattrs
 else
-TAR_CONF_OPTS += --without-xattrs
+TAR_CONF_OPT += --without-xattrs
 endif
 
 $(eval $(call AUTOTARGETS,package,tar))

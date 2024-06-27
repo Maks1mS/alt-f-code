@@ -5,5 +5,5 @@ Depends: ipkg
 Architecture: arm
 Priority: optional
 Section: libraries
-Source: http://www.gtk.org/
+Source: https://www.gtk.org/
 Maintainer: jcard

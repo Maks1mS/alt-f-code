@@ -4,9 +4,10 @@
 #
 ############################################################
 
-RSYNC_VERSION:=3.1.3
+RSYNC_VERSION:=3.3.0
 RSYNC_SOURCE:=rsync-$(RSYNC_VERSION).tar.gz
-RSYNC_SITE:=https://rsync.samba.org/ftp/rsync/src
+RSYNC_SITE := https://download.samba.org/pub/rsync/src
+
 RSYNC_AUTORECONF:=no
 RSYNC_USE_CONFIG_CACHE:=no
 RSYNC_INSTALL_STAGING:=NO
@@ -21,7 +22,10 @@ RSYNC_INSTALL_TARGET_OPT:=DESTDIR=$(TARGET_DIR) INSTALLCMD='./install-sh -c' \
 endif
 
 RSYNC_DEPENDENCIES:=uclibc popt
-RSYNC_CONF_OPT:=$(DISABLE_IPV6)
+
+RSYNC_CONF_OPT:=$(DISABLE_IPV6) --disable-md2man \
+	--disable-xxhash --disable-zstd --disable-lz4
+
 RSYNC_CONF_ENV:= CFLAGS="$(TARGET_CFLAGS) $(BR2_PACKAGE_RSYNC_OPTIM)" \
 	rsync_cv_HAVE_SOCKETPAIR=yes
 

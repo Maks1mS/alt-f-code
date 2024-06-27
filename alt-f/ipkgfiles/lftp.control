@@ -5,5 +5,5 @@ Depends: openssl, gettext, libiconv, expat, readline, ipkg
 Architecture: arm
 Priority: optional
 Section: networking
-Source: http://lftp.yar.ru
+Source: https://lftp.yar.ru
 Maintainer: jcard

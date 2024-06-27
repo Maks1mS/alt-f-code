@@ -1,8 +1,9 @@
 #!/bin/sh
 
-DESC="NFS Network Status Monitor (unix)"
+DESC="NFS Network Status Monitor"
 #TYPE=net
-REQUIRE="portmap"
+#REQUIRE="portmap"
+REQUIRE="rpcbind"
 
 NAME=rpc.statd
 NAME2=sm-notify

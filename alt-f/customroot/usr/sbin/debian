@@ -6,7 +6,7 @@ activate_chroot() {
 		return # already active
 	fi
 
-	grep -Ev ^rootfs\|^/dev/loop0\|/rootmnt\|aufs /proc/mounts > $debdir/etc/mtab
+#	grep -Ev ^rootfs\|^/dev/loop0\|/rootmnt\|aufs /proc/mounts > $debdir/etc/mtab
 
 	#mkdir -p $debdir/proc $debdir/sys $debdir/dev $debdir/dev/pts $debdir/tmp
 
@@ -43,18 +43,22 @@ deactivate_chroot() {
 board=$(cat /tmp/board)
 model=${board%-*}
 case "$model" in
+# see notes in debian_proc.cgi
 	DNS-321|DNS-323) SoC=orion5x ;;
-	DNS-320|DNS-320L|DNS-325) SoC=kirkwood ;;
+	DNR-322L|DNS-320|DNS-320L|DNS-325) SoC=kirkwood ;;
 	DNS-327L) SoC=armmp ;;
 	*) echo "Unknown Debian installer architecture for $board"; exit 1 ;;
 esac
 
-inst=$(find /mnt -maxdepth 3 -name initrd.img-\*-$SoC)
+#inst=$(find /mnt -maxdepth 3 -name initrd.img-\*-$SoC)
+inst=$(find /mnt -maxdepth 2 -name initrd.img)
 
 for i in $inst; do
-	dn=$(dirname $i)
-	debdir=$(dirname $dn)
-	if test -f ${dn}/vmlinuz-*-$SoC; then
+#	dn=$(dirname $i)
+#	debdir=$(dirname $dn)
+	debdir=$(dirname $i)
+#	if test -f ${dn}/vmlinuz-*-$SoC; then
+	if test -f ${debdir}/vmlinuz; then
 		break;
 	fi
 done
@@ -85,7 +89,7 @@ if test $# != 0 -a "$1" = "-chroot"; then
 elif test $# != 0 -a "$1" = "-kexec"; then
 
 	if test "$SoC" != "orion5x"; then
-		echo "Debian -kexec not working on DNS-320/DNS-320L/DNS-325/DNS-327, exiting."
+		echo "Debian -kexec not working on DNR-322L/DNS-320/DNS-320L/DNS-325/DNS-327, exiting."
 		exit 1
 	fi
 
@@ -145,7 +149,9 @@ cat<<-NEOF > /tmp/deb
 	#fi
 	eject -a
 
-	mkdir -p $debdir
+#kernel log: md: Skipping autodetection of RAID arrays. (raid=autodetect will force)
+# degraded arrays seems to not be detected...
+	
 	if test "\$raid" -lt 2; then # allow degraded but working RAID
 		mdadm --assemble \$part
 	fi
@@ -158,7 +164,7 @@ cat<<-NEOF > /tmp/deb
 	echo 127 > /tmp/sys/pwm1
 
 	echo "Executing Debian now..."
-
+	
 	kexec --atags --load $debdir/vmlinuz --initrd=$debdir/initrd.img \
 		--command-line="console=ttyS0,115200 root=\$part" && kexec -e
 

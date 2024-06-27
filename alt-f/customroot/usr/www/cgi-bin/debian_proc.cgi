@@ -32,11 +32,11 @@ if test -z "$part" -o "$part" = "none"; then
 	msg "You have to specify the filesystem where to install Debian"
 fi
 
-DEBDEV=$part
+DEBDEV=$(httpd -d $part)
 DEBDIR=/mnt/$DEBDEV 
 
 if ! test -d "$DEBDIR"; then
-	DEBDIR="$(awk '/'$part'/{print $2}' /proc/mounts)"
+	DEBDIR="$(awk '/\/dev\/'$part'[[:space:]]/{print $2}' /proc/mounts)"
 fi
 
 if test "$submit" = "Install"; then
@@ -54,20 +54,28 @@ if test "$submit" = "Install"; then
 
 	case "$mod" in
 		DNS-321|DNS-323)
-			SoC=orion5x
+			SoC=orion5x 
+# SoC replaced by marvell?
 			arch=armel
-			linuximg=linux-image-$SoC
+#			linuximg=linux-image-$SoC
+			linuximg=linux-image-marvell
 			;;
 		DNS-320|DNS-320L|DNS-325)
 			SoC=kirkwood
+# SoC replaced by marvell?			
 			arch=armel
-			linuximg=linux-image-$SoC
+#			linuximg=linux-image-$SoC
+			linuximg=linux-image-marvell
 			;;
 		DNS-327L)
 # Alt-F kernel has to have Thumb user support and VFP configured
 # debian armhf requirements: ARMv7-A + Thumb-2 + VFPv3D16 
 			SoC=armmp 
 			arch=armhf
+# armhf not shipped since jessie, armmp and armmp-lpae shipped instead. NO!
+#BUT there is a cdebootstrap-static-armhf distributed package, and no armmp package?! Contradictory info in Debian?
+# package name is xxx-armmp, architecture is armhf
+# kernel/initrd is vmlinuz-4.19.0-20-armmp
 			linuximg=linux-image-$SoC # armel doesn't has a linux-image for armmp in jessie
 			;;
 		*)
@@ -116,14 +124,14 @@ if test "$submit" = "Install"; then
 	mkdir -p $DEBDIR 
 	cdebootstrap-static --allow-unauthenticated --arch=$arch \
 		--include=openssh-server,kexec-tools,mdadm,$linuximg \
-		jessie $DEBDIR $DEBMIRROR
+		bookworm $DEBDIR $DEBMIRROR
 	if test $? != 0; then cleanup; fi
 
 	echo "</pre><h4>Debian installed successfully.</h4>"
 
 	echo "<h4>Updating packages....</h4><pre>"
 
-	echo "deb $DEBMIRROR jessie-backports main" >> $DEBDIR/etc/apt/sources.list
+	echo "deb $DEBMIRROR bookworm-backports main" >> $DEBDIR/etc/apt/sources.list
 
 	chroot $DEBDIR /usr/bin/apt-get update
 	chroot $DEBDIR /usr/bin/apt-get -y upgrade

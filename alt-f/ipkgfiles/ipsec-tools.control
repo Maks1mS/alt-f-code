@@ -5,5 +5,5 @@ Depends: flex, kernel-modules, ipkg
 Architecture: arm
 Priority: optional
 Section: networking
-Source: http://ipsec-tools.sourceforge.net
+Source: https://ipsec-tools.sourceforge.net
 Maintainer: jcard

@@ -5,5 +5,5 @@ Depends: libiconv, ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.wavpack.com/
+Source: https://www.wavpack.com/
 Maintainer: jcard

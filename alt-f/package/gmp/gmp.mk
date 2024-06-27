@@ -3,15 +3,22 @@
 # gmp
 #
 #############################################################
+
 GMP_VERSION:=4.2.4
+GMP_LIBVERSION:=3.4.4
 GMP_SOURCE:=gmp-$(GMP_VERSION).tar.bz2
 GMP_SITE:=$(BR2_GNU_MIRROR)/gmp
+
 GMP_CAT:=$(BZCAT)
 GMP_DIR:=$(TOOL_BUILD_DIR)/gmp-$(GMP_VERSION)
 GMP_TARGET_DIR:=$(BUILD_DIR)/gmp-$(GMP_VERSION)
+GMP_HOST_DIR:=$(TOOL_BUILD_DIR)/gmp
+
+GMP_DIR2:=$(TOOL_BUILD_DIR)/gmp-$(GMP_VERSION)-host
+
 GMP_BINARY:=libgmp$(LIBTGTEXT)
 GMP_HOST_BINARY:=libgmp$(HOST_LIBEXT)
-GMP_LIBVERSION:=3.4.4
+
 
 # this is a workaround for a bug in GMP, please see
 # http://gmplib.org/list-archives/gmp-devel/2006-April/000618.html
@@ -63,6 +70,7 @@ ifeq ($(BR2_PACKAGE_LIBGMP_HEADERS),y)
 endif
 
 libgmp: uclibc $(TARGET_DIR)/usr/lib/libgmp$(LIBTGTEXT)
+
 stage-libgmp: uclibc $(STAGING_DIR)/usr/lib/$(GMP_BINARY)
 
 libgmp-clean:
@@ -73,8 +81,6 @@ libgmp-clean:
 libgmp-dirclean:
 	rm -rf $(GMP_TARGET_DIR) $(GMP_DIR)
 
-GMP_DIR2:=$(TOOL_BUILD_DIR)/gmp-$(GMP_VERSION)-host
-GMP_HOST_DIR:=$(TOOL_BUILD_DIR)/gmp
 $(GMP_DIR2)/.configured: $(GMP_DIR)/.unpacked
 	mkdir -p $(GMP_DIR2)
 	(cd $(GMP_DIR2); rm -rf config.cache; \
@@ -95,9 +101,11 @@ $(GMP_HOST_DIR)/lib/libgmp$(HOST_LIBEXT): $(GMP_DIR2)/.configured
 	$(MAKE) -C $(GMP_DIR2) install
 
 host-libgmp: $(GMP_HOST_DIR)/lib/$(GMP_HOST_BINARY)
+
 host-libgmp-clean:
 	rm -rf $(GMP_HOST_DIR)
 	-$(MAKE) -C $(GMP_DIR2) clean
+
 host-libgmp-dirclean:
 	rm -rf $(GMP_HOST_DIR) $(GMP_DIR2)
 

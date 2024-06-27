@@ -2,4 +2,3 @@
 ./usr/bin/update_usbid.sh
 ./usr/sbin/lsusb
 ./usr/share/usb.ids.gz
-

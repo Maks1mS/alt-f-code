@@ -17,8 +17,8 @@ BCRYPT_DIR:=$(BUILD_DIR)/bcrypt-$(BCRYPT_VERSION)
 BCRYPT_CAT:=$(ZCAT)
 
 BCRYPT_BINARY:=_bcrypt.so
-BCRYPT_SITE_PACKAGE_DIR=usr/lib/python$(PYTHON_VERSION_MAJOR)/site-packages/bcrypt
-BCRYPT_TARGET_BINARY:=$(BCRYPT_SITE_PACKAGE_DIR)/../$(BCRYPT_BINARY)
+BCRYPT_SITE_PACKAGE_DIR= /usr/lib/python$(PYTHON_VERSION_MAJOR)/site-packages/bcrypt
+BCRYPT_TARGET_BINARY=$(BCRYPT_SITE_PACKAGE_DIR)/$(BCRYPT_BINARY)
 
 BCRYPT_CFLAGS = CFLAGS+=" -I$(STAGING_DIR)/usr/include/python$(PYTHON_VERSION_MAJOR)"
 
@@ -46,14 +46,15 @@ $(BCRYPT_DIR)/.build: $(BCRYPT_DIR)/.patched
 $(TARGET_DIR)/$(BCRYPT_TARGET_BINARY): $(BCRYPT_DIR)/.build
 	tar -C $(TARGET_DIR)/usr -xf $(BCRYPT_DIR)/dist/bcrypt-$(BCRYPT_VERSION).$(GNU_TARGET_NAME).tar.gz
 	find $(TARGET_DIR)/$(BCRYPT_SITE_PACKAGE_DIR) -name \*.pyc -delete
+	touch $(TARGET_DIR)/$(BCRYPT_TARGET_BINARY)
 
-bcrypt: uclibc python cffi $(TARGET_DIR)/$(BCRYPT_TARGET_BINARY)
+bcrypt: python cffi $(TARGET_DIR)/$(BCRYPT_TARGET_BINARY)
 
 bcrypt-unpack: $(BCRYPT_DIR)/.unpacked
 
-bcrypt-build: $(BCRYPT_DIR)/.build
+bcrypt-build: python cffi $(BCRYPT_DIR)/.build
 
-bcrypt-install: $(TARGET_DIR)/$(BCRYPT_TARGET_BINARY)
+bcrypt-install: python cffi $(TARGET_DIR)/$(BCRYPT_TARGET_BINARY)
 
 bcrypt-dirclean:
 	rm -rf $(BCRYPT_DIR)

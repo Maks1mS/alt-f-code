@@ -5,5 +5,5 @@ Depends: transmission, pcre, libxml2, libcurl, ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://kylek.is-a-geek.org:31337/Automatic
+Source: https://kylek.is-a-geek.org:31337/Automatic
 Maintainer: jcard

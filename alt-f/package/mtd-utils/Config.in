@@ -5,3 +5,5 @@ config BR2_PACKAGE_MTD_UTILS
 	select BR2_PACKAGE_LIBUUID
 	help
 	  Build mtd/jffs/ubi/ubifs utilities
+
+	  ftp://ftp.infradead.org/pub/mtd-utils

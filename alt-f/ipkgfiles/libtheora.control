@@ -5,5 +5,5 @@ Description: A library for the free and open video compression format "Theora" f
 Architecture: arm
 Priority: optional
 Section: libraries
-Source: http://www.theora.org/
+Source: https://www.theora.org/
 Maintainer: jcard

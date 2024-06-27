@@ -4,8 +4,8 @@
 #
 #############################################################
 
-APR_UTIL_VERSION = 1.5.1
-APR_UTIL_SITE = http://archive.apache.org/dist/apr
+APR_UTIL_VERSION = 1.6.1
+APR_UTIL_SITE = https://archive.apache.org/dist/apr
 APR_UTIL_SOURCE = apr-util-$(APR_UTIL_VERSION).tar.gz
 
 APR_UTIL_INSTALL_STAGING = YES

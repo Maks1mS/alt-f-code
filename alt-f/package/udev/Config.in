@@ -3,7 +3,7 @@ config BR2_PACKAGE_UDEV
 	help
 	  Userspace device daemon.
 
-	  ftp://ftp.kernel.org/pub/linux/utils/kernel/hotplug/
+	  https://kernel.org/pub/linux/utils/kernel/hotplug/
 
 config BR2_PACKAGE_UDEV_UTILS
 	bool "udev-utils"

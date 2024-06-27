@@ -24,8 +24,8 @@ $(eval $(call AUTOTARGETS,package,wxwidgets))
 
 $(WXWIDGETS_HOOK_POST_INSTALL):
 	(cd $(TARGET_DIR); rm -rf ./usr/lib/wx ./usr/share/bakefile ./usr/bin/wx-config )
-	ln -sf $(STAGING_DIR)/usr/lib/wx/config/arm-linux-base-unicode-release-$(WXWIDGETS_MAJOR) \
+	ln -sf $(STAGING_DIR)/usr/lib/wx/config/$(GNU_TARGET_NAME)-base-unicode-release-$(WXWIDGETS_MAJOR) \
 		$(STAGING_DIR)/usr/bin/wx-config
-	cp $(STAGING_DIR)/usr/lib/wx/include/arm-linux-base-unicode-release-$(WXWIDGETS_MAJOR)/wx/setup.h \
+	cp $(STAGING_DIR)/usr/lib/wx/include/$(GNU_TARGET_NAME)-base-unicode-release-$(WXWIDGETS_MAJOR)/wx/setup.h \
 		$(STAGING_DIR)/usr/include/wx-$(WXWIDGETS_MAJOR)/wx
 	touch $@

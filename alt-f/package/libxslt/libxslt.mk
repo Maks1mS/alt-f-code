@@ -14,20 +14,17 @@ LIBXSLT_INSTALL_STAGING = YES
 LIBXSLT_INSTALL_TARGET = YES
 LIBXSLT_DEPENDENCIES = libxml2
 
+LIBXSLT_CONF_ENV = XSLTPROC=/usr/bin/xsltproc LIBXML_CFLAGS=-I$(STAGING_DIR)/usr/include/libxml2
+
+LIBXSLT_CONF_OPT = --with-gnu-ld --enable-shared --enable-static \
+		--without-debugging --without-python --without-threads
+
 # If we have enabled libgcrypt then use it, else disable crypto support.
 ifeq ($(BR2_PACKAGE_LIBGCRYPT),y)
 LIBXSLT_DEPENDENCIES += libgcrypt
 else
-LIBXSLT_XTRA_CONF_OPT = --without-crypto
+LIBXSLT_CONF_OPT += --without-crypto
 endif
-
-LIBXSLT_CONF_OPT = --with-gnu-ld --enable-shared \
-		--enable-static $(LIBXSLT_XTRA_CONF_OPT) \
-		$(DISABLE_NLS) $(DISABLE_IPV6) \
-		--without-debugging --without-python \
-		--without-threads \
-
-LIBXSLT_CONF_ENV = XSLTPROC=/usr/bin/xsltproc LIBXML_CFLAGS=-I$(STAGING_DIR)/usr/include/libxml2
 		
 $(eval $(call AUTOTARGETS,package,libxslt))
 

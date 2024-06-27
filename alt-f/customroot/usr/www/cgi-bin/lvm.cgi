@@ -4,8 +4,6 @@
 check_cookie
 write_header "LVM Setup"
 
-echo "<h3 class=\"warn\">Work in progress, don't use for prodution.</h3>"
-
 CONFF=/etc/misc.conf
 
 if test -f $CONFF; then
@@ -24,7 +22,7 @@ devs=$(fdisk -l /dev/sd? 2> /dev/null | awk 'substr($1,1,5) == "/dev/" && ($5 ==
 	END {exit found}')
 no_part=$?
 
-if test $no_pv != 0 -a $no_part = 0; then
+if test "$no_pv" != 0 -a "$no_part" = 0; then
 	echo "<h4>No Physical Volumes nor LVM partitions found, use the Disk Partitioner to create LVM partitions.</h4>"
 	exit 0
 fi
@@ -39,9 +37,9 @@ cat<<EOF
 	<table>
 EOF
 
-vg=$(vgs --noheadings --units g 2> /dev/null)
+vg=$(vgs --noheadings --units g 2>&1)
 
-if ! echo $vg | grep -qi 'No volume groups'; then
+if ! echo "$vg" | grep -qi 'No volume groups'; then
 	echo "<tr><th>Group</th><th>Capacity</th><th>Free</th><th></th>
 		<th class="highcol" colspan=4>Manage Physical Volumes</th></tr>"
 
@@ -60,7 +58,7 @@ if ! echo $vg | grep -qi 'No volume groups'; then
 		fi
 
 		dvgname=$vgname
-		if test ${attr:3:1} = "p"; then
+		if test "${attr:3:1}" = "p"; then
 			dvgname="<span class="red">$vgname</span>"
 		fi
 
@@ -71,9 +69,8 @@ if ! echo $vg | grep -qi 'No volume groups'; then
 			<td class="highcol"><select name=pdev_$i><option value=none>Select a Partition</option>$devs</select></td>
 			<td class="highcol"><input type="submit" name=$i value="Add"></td>
 			<td class="highcol"><input type="submit" name=$i value="Remove"></td>
-			<td class="highcol"><input type="submit" name=$i value="Empty"></td>
+			<td class="highcol"><input type="submit" name=$i value="Empty"></td></tr>
 		EOF
-		echo "</tr>"
 		i=$((i+1))
 	done
 fi
@@ -82,7 +79,7 @@ VG=altf
 vgdisplay $VG >& /dev/null
 altfvg=$?
 
-if test $altfvg != 0; then
+if test "$altfvg" != 0; then
 	cat<<-EOF
 		<tr><td colspan=5>No Alt-F Volume Group detected
 		<select name=pdev><option value=none>Select a Partition</option>$devs</select>
@@ -129,7 +126,8 @@ if test -n "$pvd"; then
 	echo "</fieldset>"
 fi
 
-lvd=$(lvs -a --separator ';' --noheading -o +segtype --units g 2>/dev/null)
+#lvd=$(lvs -a --separator ';' --noheading -o +segtype --units g 2>/dev/null)
+lvd=$(lvs -a --separator ';' --noheading -o +segtype --units g 2>/dev/null | sort -u)
 
 if test "$altfvg" = 0 -o -n "$lvd"; then
 	cat<<-EOF
@@ -151,7 +149,7 @@ if test "$altfvg" = 0 -o -n "$lvd"; then
 			if echo "$ldev" | grep -qE _mimage_\|_mlog; then continue; fi
 
 			dldev=$ldev
-			if test ${attr:4:1} != "a"; then
+			if test "${attr:4:1}" != "a"; then
 				dldev="<span class="red">$ldev</span>"
 			fi
 

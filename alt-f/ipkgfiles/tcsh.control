@@ -5,5 +5,5 @@ Depends: ncurses, ipkg
 Architecture: arm
 Priority: optional
 Section: admin
-Source: http://www.tcsh.org/Welcome
+Source: https://www.tcsh.org/Welcome
 Maintainer: jcard

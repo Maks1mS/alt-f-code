@@ -38,18 +38,17 @@ $(FFMPEG_DIR)/.configured: $(FFMPEG_DIR)/.unpacked
 	(cd $(FFMPEG_DIR); rm -rf config.cache; \
 		$(TARGET_CONFIGURE_OPTS) \
 		$(TARGET_CONFIGURE_ARGS) \
-		CFLAGS="$(TARGET_CFLAGS)" \
-		LDFLAGS="$(TARGET_LDFLAGS)" \
+		$(TARGET_CONFIGURE_ENV) \
 		./configure \
 		--prefix=/usr \
-		--enable-cross-compile --cross-prefix=arm-linux-uclibcgnueabi- \
+		--enable-cross-compile --cross-prefix=arm-linux- \
 		--host-cc=$(HOSTCC) --cc=$(TARGET_CC) \
 		--enable-shared --enable-pic --disable-static --disable-debug \
 		--target-os=linux \
 		--arch=arm --cpu=armv5te --disable-armv6 --disable-armv6t2 --disable-runtime-cpudetect \
 		--disable-hwaccels --disable-vfp --disable-neon \
 		--enable-swscale --disable-devices \
-		--enable-small --disable-bzlib --disable-lzma \
+		--disable-bzlib --disable-lzma \
 		$(FFMPEG_CONF_OPT) \
 	)
 	touch $@

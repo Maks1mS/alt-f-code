@@ -5,5 +5,5 @@ Depends: lame, twolame, mpg123-libs, alsa-lib, libid3tag, libcurl, ffmpeg, libma
 Architecture: arm
 Priority: optional
 Section: upnp-dlna servers
-Source: http://sourceforge.net/projects/musicpd
+Source: https://sourceforge.net/projects/musicpd
 Maintainer: jcard

@@ -4,12 +4,14 @@
 #
 ############################################################
 
-STUNNEL_VERSION:=5.56
+#STUNNEL_VERSION:=5.64
+STUNNEL_VERSION:=5.72
 STUNNEL_SITE:=https://www.stunnel.org/downloads
-
 STUNNEL_SOURCE:=stunnel-$(STUNNEL_VERSION).tar.gz
+
 STUNNEL_CAT:=$(ZCAT)
 STUNNEL_DIR:=$(BUILD_DIR)/stunnel-$(STUNNEL_VERSION)
+
 STUNNEL_LIBTOOL_PATCH = NO
 STUNNEL_DEPENDENCIES := uclibc openssl
 

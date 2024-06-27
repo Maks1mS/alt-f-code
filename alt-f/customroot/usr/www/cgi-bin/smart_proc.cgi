@@ -9,16 +9,6 @@ read_args
 CONFF=/etc/smartd.conf
 CONFO=/etc/misc.conf
 
-mailto() {
-	if test -e $CONFO; then
-		SENDTO=$(awk -F= '/^MAILTO/{print $2}' $CONFO)
-	fi
-
-	if test -z "$SENDTO"; then
-		msg "Please setup Mail Settings first"
-	fi
-}
-
 when() {
 	days=""
 	for i in $(seq 1 7); do
@@ -60,12 +50,13 @@ fi
 
 opt="$opt -m @systemerror.sh,"
 if test -n "$mailerror"; then
-	mailto
-	opt="${opt}$SENDTO"
+	if test -z "$sendto"; then
+		msg "Please setup Mail Settings first"
+	fi
+	opt="${opt}$(httpd -d $sendto)"
 fi
 
 if test -n "$mailtest"; then
-	mailto
 	opt="$opt -M test"
 fi
 

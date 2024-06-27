@@ -29,6 +29,14 @@ CRYPTOPP_INSTALL_STAGING_OPT = PREFIX=$(STAGING_DIR)/usr install
 
 $(eval $(call AUTOTARGETS,package,cryptopp))
 
+$(CRYPTOPP_HOOK_POST_INSTALL):
+	ln -srf $(STAGING_DIR)/usr/lib/libcryptopp.so.5.6.5 \
+		$(STAGING_DIR)/usr/lib/libcryptopp.so.5.6
+	ln -srf $(TARGET_DIR)/usr/lib/libcryptopp.so.5.6.5 \
+		$(TARGET_DIR)/usr/lib/libcryptopp.so.5.6
+
+	touch $@
+
 $(CRYPTOPP_TARGET_CONFIGURE):
 	$(SED) 's/\(.*march=native\)/#\1/' \
 	-e 's|./libcryptopp.a|-L. -lcryptopp|' $(CRYPTOPP_DIR)/GNUmakefile

@@ -2,11 +2,14 @@
 #
 # yenc
 #
-#############################################################
+############################################################
 
-YENC_VERSION = 0.3
+YENC_VERSION = 0.4.0
+#YENC_SOURCE = python-yenc_$(YENC_VERSION).orig.tar.gz
+#YENC_SITE = http://deb.debian.org/debian/pool/main/p/python-yenc
+YENC_SITE = https://pypi.org/packages/source/y/yenc
 YENC_SOURCE = yenc-$(YENC_VERSION).tar.gz
-YENC_SITE = http://www.golug.it/pub/yenc
+
 YENC_AUTORECONF = NO
 YENC_INSTALL_STAGING = NO
 YENC_INSTALL_TARGET = NO
@@ -16,8 +19,8 @@ YENC_DIR:=$(BUILD_DIR)/yenc-$(YENC_VERSION)
 YENC_CAT:=$(ZCAT)
 
 YENC_BINARY:=_yenc.so
-YENC_SITE_PACKAGE_DIR=usr/lib/python$(PYTHON_VERSION_MAJOR)/site-packages
-YENC_TARGET_BINARY:=$(YENC_SITE_PACKAGE_DIR)/$(YENC_BINARY)
+YENC_SITE_PACKAGE_DIR = usr/lib/python$(PYTHON_VERSION_MAJOR)/site-packages
+YENC_TARGET_BINARY = $(YENC_SITE_PACKAGE_DIR)/$(YENC_BINARY)
 
 YENC_CFLAGS = CFLAGS+=" -I$(STAGING_DIR)/usr/include/python$(PYTHON_VERSION_MAJOR)"
 
@@ -43,14 +46,15 @@ $(YENC_DIR)/.build: $(YENC_DIR)/.patched
 $(TARGET_DIR)/$(YENC_TARGET_BINARY): $(YENC_DIR)/.build
 	tar -C $(TARGET_DIR)/usr -xf $(YENC_DIR)/dist/yenc-$(YENC_VERSION).$(GNU_TARGET_NAME).tar.gz
 	rm $(TARGET_DIR)/$(YENC_SITE_PACKAGE_DIR)/yenc.pyc
+	touch $(TARGET_DIR)/$(YENC_TARGET_BINARY)
 
-yenc: uclibc python $(TARGET_DIR)/$(YENC_TARGET_BINARY)
+yenc: python $(TARGET_DIR)/$(YENC_TARGET_BINARY)
 
 yenc-unpack: $(YENC_DIR)/.unpacked
 
-yenc-build: $(YENC_DIR)/.build
+yenc-build: python $(YENC_DIR)/.build
 
-yenc-install: $(TARGET_DIR)/$(YENC_TARGET_BINARY)
+yenc-install: python $(TARGET_DIR)/$(YENC_TARGET_BINARY)
 
 yenc-dirclean:
 	rm -rf $(YENC_DIR)
@@ -59,7 +63,7 @@ yenc-dirclean:
 #
 # Toplevel Makefile options
 #
-#############################################################
+############################################################
 ifeq ($(BR2_PACKAGE_YENC),y)
 TARGETS+=yenc
 endif

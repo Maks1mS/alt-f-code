@@ -5,12 +5,23 @@ check_cookie
 write_header "Backup Server Setup"
 
 CONF_BACKUP=/etc/backup.conf
+CONFF=/etc/misc.conf
+
+. $CONFF
+
+if test -n "$BACKUP_LOG"; then
+	backlog_chk="checked"
+fi
+
+if test -z "$MAILTO"; then
+	backlog_dis="disabled"
+fi
 
 if ! test -h /Backup -a -d "$(readlink -f /Backup)"; then
 	cat<<-EOF
 		<h4>No Backup folder found, create it on a filesystem<br>
 		 big enought to hold all yours backups:</h4>
-		<form action="/cgi-bin/backup_proc.cgi" method=post>
+		<form action="/cgi-bin/backup_proc.cgi" method="post">
 	EOF
 	select_part
 	echo "<input type=submit name=CreateDir value=CreateDir>
@@ -199,7 +210,11 @@ for i in $(seq $cnt $((cnt+2))); do
 done
 
 cat<<EOF
-	</table></fieldset>
+	</table>
+	<p><input type=checkbox $backlog_chk $backlog_dis name=backlog value="yes"> E-mail log on completion to <input type=text readonly name=sendto value="$MAILTO">
+	Use "Setup Mail" to change</p>
+	<tr>
+	</fieldset>
 	<input type=hidden name=cnt_know value="$i">
 	<input type=submit name=submit value=Submit>$(back_button)
 	</form></body></html>

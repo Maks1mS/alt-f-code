@@ -122,11 +122,11 @@ static void infohandler(int sig) {
 	setlogmask(LOG_UPTO(LOG_INFO));
 }
 
-int bcd2int(n) {
+int bcd2int(int n) {
 	return (n & 0x0f) + 10 * ((n & 0xf0) >> 4);
 }
 
-int int2bcd(n) {
+int int2bcd(int n) {
 	return ((n / 10) << 4) + (n % 10);
 }
 
@@ -1149,7 +1149,7 @@ void usage(char *argv[]) {
 
 int main(int argc, char *argv[]) {
 	int i;
-	int sleepCount = 0;
+	unsigned short sleepCount = 0;
 
 	struct sockaddr_un server;
 	int pollTimeMs = 10; // Sleep 10ms

@@ -5,9 +5,11 @@
 #############################################################
 
 #LIBGPG_ERROR_VERSION:=1.6
-LIBGPG_ERROR_VERSION:=1.10
+#LIBGPG_ERROR_VERSION:=1.10
+LIBGPG_ERROR_VERSION:=1.33
 LIBGPG_ERROR_SOURCE:=libgpg-error-$(LIBGPG_ERROR_VERSION).tar.bz2
 LIBGPG_ERROR_SITE:=https://www.gnupg.org/ftp/gcrypt/libgpg-error
+
 LIBGPG_ERROR_DIR:=$(BUILD_DIR)/libgpg-error-$(LIBGPG_ERROR_VERSION)
 LIBGPG_ERROR_LIBRARY:=src/libgpg-error.la
 LIBGPG_ERROR_DESTDIR:=usr/lib
@@ -29,7 +31,7 @@ $(LIBGPG_ERROR_DIR)/.configured: $(LIBGPG_ERROR_DIR)/.source
 		$(TARGET_CONFIGURE_ENV) \
 		./configure \
 		--target=$(GNU_TARGET_NAME) \
-		--host=$(GNU_TARGET_NAME) \
+		--host=$(BR2_PACKAGE_LIBGPG_ERROR_SYSCFG) \
 		--build=$(GNU_HOST_NAME) \
 		--prefix=/usr \
 		--exec-prefix=/usr \
@@ -43,18 +45,21 @@ $(LIBGPG_ERROR_DIR)/.configured: $(LIBGPG_ERROR_DIR)/.source
 		--includedir=/usr/include \
 		--mandir=/usr/man \
 		--infodir=/usr/info \
+		--disable-tests \
 		$(DISABLE_NLS) \
 	)
 	touch $@
 
 $(LIBGPG_ERROR_DIR)/$(LIBGPG_ERROR_LIBRARY): $(LIBGPG_ERROR_DIR)/.configured
-	$(MAKE) CC=$(TARGET_CC) -C $(LIBGPG_ERROR_DIR)
+	$(MAKE1) CC=$(TARGET_CC) -C $(LIBGPG_ERROR_DIR)
 
 $(STAGING_DIR)/$(LIBGPG_ERROR_TARGET_LIBRARY): $(LIBGPG_ERROR_DIR)/$(LIBGPG_ERROR_LIBRARY)
-	$(MAKE) DESTDIR=$(STAGING_DIR) -C $(LIBGPG_ERROR_DIR) install
+	$(MAKE1) DESTDIR=$(STAGING_DIR) -C $(LIBGPG_ERROR_DIR) install
 	$(SED) "s,^libdir=.*,libdir=\'$(STAGING_DIR)/usr/lib\',g" $(STAGING_DIR)/usr/lib/libgpg-error.la	
-	sed -i 's|includedir=\(.*\)|includedir='$(STAGING_DIR)'\1|' $(STAGING_DIR)/usr/bin/gpg-error-config
-	sed -i 's|libdir=\(.*\)|libdir='$(STAGING_DIR)'\1|' $(STAGING_DIR)/usr/bin/gpg-error-config
+	$(SED) 's|includedir=\(.*\)|includedir='$(STAGING_DIR)'\1|' \
+	-e 's|libdir=\(.*\)|libdir='$(STAGING_DIR)'\1|' \
+	$(STAGING_DIR)/usr/bin/gpg-error-config
+	cp $(STAGING_DIR)/usr/bin/gpg-error-config $(HOSTDIR)/usr/bin
 
 $(TARGET_DIR)/$(LIBGPG_ERROR_TARGET_LIBRARY): $(STAGING_DIR)/$(LIBGPG_ERROR_TARGET_LIBRARY)
 	cp -dpf $<* $(TARGET_DIR)/$(LIBGPG_ERROR_DESTDIR)

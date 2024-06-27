@@ -20,8 +20,7 @@ BOX_CNF=/etc/ssl/server.cnf
 
 CONF_LIGHTY=/etc/lighttpd/lighttpd.conf
 MSMTP_CONF=/etc/msmtprc
-
-CHECHIP_SITE=checkip.dyndns.org
+ACME_CONF=/etc/acme.sh
 
 mktt exportca_tt "Save the public root CA certificate in your computer<br>for installing into the browser or OS root trust store."
 
@@ -55,9 +54,9 @@ cert_details() {
 		CN=ERROR; bits=ERROR; notAfter=ERROR
 		return
 	fi
-
+	#'s/.*Issuer.*CN = \(.*\)/ICN="\1"/p; \
 	sout=$(echo "$oout" | sed -n \
-	's/.*Issuer.*CN = \(.*\)/ICN="\1"/p; \
+	's/.*Issuer.*O = \(.*\), CN = \(.*\)/IO="\1" ICN="\2"/p; \
 	s/.*Subject.*CN = \(.*\)/SCN="\1"/p; \
 	s/.*Not After : \(.*\)/notAfter="\1"/p; \
 	s/.*(\(.*\) bit)/bits="\1"/p; \
@@ -68,6 +67,34 @@ cert_details() {
 	if test "$st" != 0; then
 		notAfter="<span class="error">$notAfter</span>"
 	fi
+	
+	if test "$bits" -ge 1024; then
+		crbits="RSA with $bits"
+	else
+		crbits="ECC with $bits"
+	fi
+}
+
+# num bits, sel name,
+sel_bits() {
+	for i in 224 256 384 1024 2048 3072 4096; do
+		eval bsel$i=""
+		if test "$1" = "$i"; then
+			eval bsel$i="selected"
+		fi
+	done
+
+	cat<<-EOF
+		<select name=$2 id="$2_id">
+			<option $bsel224 value="224">ECC 224</option>
+			<option $bsel256 value="256">ECC 256</option>
+			<option $bsel384 value="384">ECC 384</option>
+			<option $bsel1024 value="1024">RSA 1024</option>
+			<option $bsel2048 value="2048">RSA 2048</option>
+			<option $bsel3072 value="3072">RSA 3072</option>
+			<option $bsel4096 value="4096">RSA 4096</option>
+		</select>
+	EOF
 }
 
 cat<<-EOF
@@ -77,16 +104,14 @@ cat<<-EOF
 	}
 	function csubmit(id) {
 		obj = document.getElementById(id);
-		if ( obj.value != "") {
-			update_nbits()
-			return true
-		} else {
+		if ( obj.value == "") {
 			ocol = obj.style.backgroundColor
 			obj.style.backgroundColor = "#FDDD47"
 			alert("You have to supply the private key password.")
 			setTimeout(function(){obj.style.backgroundColor = ocol}, 1000)
 			return false
 		}
+		return true
 	}
 	
 	function psubmit() {
@@ -109,18 +134,17 @@ cat<<-EOF
 			return false
 		}
 	}
-	
-	function update_nbits() {
-		nbits=document.getElementById("nbits_id").value
-		document.getElementById("ca_cert_bits_id").value=nbits
-		document.getElementById("cert_bits_id").value=nbits
-		return true
-	}
-	
 	</script>
 
 	<fieldset><legend>Alt-F fake root Certificate Autority (CA)</legend>
 EOF
+
+# SSL_CERT_BITS=$(sed -n 's/^SSL_CERT_BITS="\([[:digit:]]*\)"/\1/p' $MISC_CONF)
+# if test -z "$SSL_CERT_BITS"; then
+# 	SSL_CERT_BITS=256
+# 	sed -i '/^SSL_CERT_BITS=/d' $MISC_CONF
+# 	echo "SSL_CERT_BITS=\"$SSL_CERT_BITS\"" >> $MISC_CONF
+# fi
 
 if ! test -s $BOX_CA_KEY -a -s $BOX_CA_CRT; then
 	cadis=disabled
@@ -133,13 +157,20 @@ else
 	instmsg="<p>If you have multiple Alt-F boxes all can use the same root CA certificate, use \"saveCA\" in one and \"loadCA\" in the others.</p>"
 
 	cert_details $BOX_CA_CRT; CA_CN=$ICN
-	if openssl rsa -in $BOX_CA_KEY -noout -passin pass:$RANDOM >& /dev/null; then
+	
+	if test "$bits" -ge 1024; then
+		SSL_CERT_TYPE="rsa"
+	else
+		SSL_CERT_TYPE="ec"
+	fi
+	
+	if openssl $SSL_CERT_TYPE -in $BOX_CA_KEY -noout -passin pass:$RANDOM >& /dev/null; then
 		passwd_set=not
 		cadis=disabled
 	fi
-
+			
 	cat<<-EOF
-		<p>Created by <strong>$ICN</strong>, with <strong> $bits</strong> bit, valid until <strong>$notAfter</strong>. Private key is <strong><span class="error">$passwd_set</span></strong> password protected.</p>
+		<p>Type <strong> $crbits</strong> bit, created by <strong>$ICN</strong>, valid until <strong>$notAfter</strong>. Private key is <strong><span class="error">$passwd_set</span></strong> password protected.</p>
 	EOF
 fi
 
@@ -154,20 +185,9 @@ if test -n "$passwd_set"; then
 		<tr><td>Strong password to protect the CA private key</td>
 			<td><input id="ppass1_id" type=password name="pass1" value="">
 			Again:<input id="ppass2_id" type=password name="pass2" value="">
+			<input type=hidden name=nbits_ca value="$bits">
 			<input type=submit name="ProtectKey" value="ProtectKey" onclick="return psubmit()"></td></tr>
 	EOF
-fi
-
-SSL_CERT_BITS=$(sed -n 's/^SSL_CERT_BITS="\([[:digit:]]*\)"/\1/p' $MISC_CONF)
-
-if test -z "$SSL_CERT_BITS"; then
-	bsel2048="selected"
-else
-	for i in 1024 2048 3072 4096; do
-		if test "$SSL_CERT_BITS" = "$i"; then
-			eval bsel$i="selected"
-		fi
-	done
 fi
 
 cat<<-EOF
@@ -190,18 +210,13 @@ cat<<-EOF
 		<input type=file name="CAload2"></td>
 		</tr>
 		
-	<tr><td>Create new CA certificate and private key</td>
+	<tr><td>Create a new CA certificate and private key</td>
 		<td><input type=submit name=createCA value="createCA" $(ttip createca_tt)>
-		with <select name=nbits id="nbits_id">
-			<option $bsel1024 value="1024">1024</option>
-			<option $bsel2048 value="2048">2048</option>
-			<option $bsel3072 value="3072">3072</option>
-			<option $bsel4096 value="4096">4096</option>
-		</select> bit</td>
+		with $(sel_bits $bits nbits_ca) bits
+		</td>
 		</tr>
 
 	</table>
-	<input type=hidden name=SSL_CERT_BITS id="ca_cert_bits_id" value="$SSL_CERT_BITS">
 	</form>
 	</fieldset>
 EOF
@@ -224,8 +239,18 @@ else
 		fi
 	done
 	
-	if test "$ICN" = "$SCN"; then ICN="$ICN (self signed)"; fi
-	hdmsg="<p>Current certificate issued by <strong>$ICN</strong> for a host with names of <strong>$(echo $san | sed 's/ /, /g')</strong>, with <strong> $bits</strong> bit, valid until <strong>$notAfter</strong>.</p>$emsg"
+	vmsg=$(openssl verify -CAfile $BOX_CA_CRT $BOX_CRT 2>&1)
+	st=$?
+	if test "$st" = 0; then
+		ICN="$ICN (signature verified)"
+	elif openssl verify -CAfile $BOX_CRT $BOX_CRT >& /dev/null; then
+		ICN="$ICN (self signed)"
+	else
+		ICN="$ICN (signature verification failed)"
+		#e=$(echo "$vmsg" | sed -n 's/error.*lookup: \(.*\)/\1/p')
+		emsg="<p class="error">The box certificate could not be verified to be signed by its claimed issuer: $(echo "$vmsg" | sed -n 's/error.*lookup: \(.*\)/\1/p')</p>"
+	fi
+	hdmsg="<p>Type <strong> $crbits</strong> bit, issued by <strong>$ICN</strong> for a host with names of<br><strong>$(echo $san | sed 's/ /, /g')</strong>, valid until <strong>$notAfter</strong>.</p>$emsg"
 fi
 
 cat<<-EOF
@@ -233,17 +258,16 @@ cat<<-EOF
 	$hdmsg
 	<form name=certsf action="/cgi-bin/certs_proc.cgi" method="post">
 	<table>
-	<tr><td>Create box new certificate and key:</td></tr>
+	<tr><td>Create a new certificate and key with $(sel_bits $bits nbits_cert) bits for the box:</td></tr>
 	<tr><td>&nbsp;-Signed with the $CA_CN</td>
 		<td><input type=submit $cadis name="createCert" value="createCert" onclick="return csubmit('passbox_id')" $(ttip createcrt_tt)></td>
 		<td>CA private key password 
 		<input type=password $cadis id="passbox_id" name="pass"></td>
 	</tr>
-	<tr><td>&nbsp;-Self signed</td>
-		<td><input type=submit name="sefSignCert" value="selfSignCert" onclick="return update_nbits()"></td>
+	<tr><td>&nbsp;-Just self signed</td>
+		<td><input type=submit name="selfSignCert" value="selfSignCert"></td>
 	</tr>
 	</table>
-	<input type=hidden name=SSL_CERT_BITS id="cert_bits_id" value="$SSL_CERT_BITS">
 	</form>
 	</fieldset>
 
@@ -254,6 +278,7 @@ EOF
 if which lighttpd >& /dev/null; then
 	lighty_inst=yes
 	server_root=$(sed -n 's|^var.server_root.*=.*"\(.*\)"|\1|p' $CONF_LIGHTY)
+	alpndir=$(sed -n 's|^var.alpn_dir[[:space:]]*=[[:space:]]*"\(.*\)".*|\1|p' $CONF_LIGHTY)
 	
 	ext_domain=$(sed -n 's/^var.ext_domain[[:space:]]*=[[:space:]]*"\([a-zA-Z0-9.-]*\)".*/\1/p' $CONF_LIGHTY 2>/dev/null)
 
@@ -263,36 +288,44 @@ if which lighttpd >& /dev/null; then
 
 	https_port=$(sed -n 's/^var.https_port[[:space:]]*=[[:space:]]*\([[:digit:]]*\).*/\1/p' $CONF_LIGHTY 2>/dev/null)
 	
+	http_port=$(sed -n 's/^var.http_port[[:space:]]*=[[:space:]]*\([[:digit:]]*\).*/\1/p' $CONF_LIGHTY 2>/dev/null)
+	
 	if ! https_port_msg=$(checkport $https_port); then
 		if ! echo $https_port_msg | grep -q lighttpd; then
 			https_port=443
 		fi
 	fi
 
-	domainip=$(nslookup $ext_domain 2>/dev/null | awk '/'$ext_domain'/{getline; print $3}')
-	myrealip=$(wget -q $CHECHIP_SITE -O - | grep -oE '[[:digit:]]{1,3}(.[[:digit:]]{1,3}){3}')
+	domainip=$(nslookup $ext_domain 2>/dev/null | awk '/^Name.*'$ext_domain'/{getline; print $3}')
+#	CHECKIP_SITE=checkip.dyndns.org
+#	myrealip=$(wget -q $CHECKIP_SITE -O - | grep -oE '[[:digit:]]{1,3}(.[[:digit:]]{1,3}){3}')
+	myrealip=$(upnpcc -s | sed -n 's/^ExternalIPAddress = \(.*\)/\1/p')
+
 fi
 
 MAIL_TO=$(grep ^MAILTO $MISC_CONF | cut -d= -f2 | tr -d \")
 MAIL_FROM=$(grep ^from $MSMTP_CONF | cut -f2)
 
 if ! realpath $(which acme.sh) >& /dev/null; then
-	echo "<p>To have a free Let's Encrypt SSL certificate you must own a domain name, expose the box to the internet by forwarding some router ports and have the lighttpd webserver running.</p>
-	You need to install acmesh first: <a href="/cgi-bin/packages_ipkg.cgi">Install</a>.</p>"
+	echo "<p>To have a free Let's Encrypt SSL certificate you must own a domain name, expose the box to the internet by forwarding some router ports, activate uPnP on the router and have the lighttpd webserver running.</p>
+	<p>You need to install 'acmesh' first: <a href=\"/cgi-bin/packages_ipkg.cgi\">Install</a>.</p>"
 
+elif ! realpath $(which msmtp) >& /dev/null; then
+	echo "<p>You must install 'msmtp'. <a href=\"/cgi-bin/packages_ipkg.cgi\">Install</a>.</p>"
+	
 elif test -z "$MAIL_TO" -o -z "$MAIL_FROM"; then
-	echo "<p>Please setup and test your mail to receive notifications of possible certificate renew errors. <a href="/cgi-bin/mail.cgi">Setup Mail</a>.</p>"
+	echo "<p>Please setup and test your mail to receive notifications of possible certificate renew errors. <a href=\"/cgi-bin/mail.cgi\">Setup Mail</a>.</p>"
 
 elif ! rclighttpd status >& /dev/null; then
 	if test -z "$lighty_inst"; then
-		echo "<p>You must install Lighttpd. <a href="/cgi-bin/packages_ipkg.cgi">Install</a>.</p>"
+		echo "<p>You must install 'lighttpd'. <a href=\"/cgi-bin/packages_ipkg.cgi\">Install</a>.</p>"
 	else
-		echo "<p>You must have Lighttpd configured and running.</p><p>Specify the domain name and forward the needed router ports.</p>
-		<p>After Submiting and starting Lighttpd, verify its status by using the \"checkPort\" button. <a href="/cgi-bin/lighttpd.cgi">Setup Lighttpd</a>.</p>"
+		echo "<p>You must have Lighttpd configured and running.</p><p>Specify the domain name and forward the needed router ports. The router must have uPnP active.</p>
+		<p>After Submiting and starting Lighttpd, verify its status by using the \"checkPort\" button. <a href=\"/cgi-bin/lighttpd.cgi\">Setup Lighttpd</a>.</p>"
 	fi
 	
 elif test "$ext_domain" = "lighttpd"; then
-	echo "<p>When configuring Lighttpd you must specify and enable the domain name that you purchased and is assigned to your external IP. <a href="/cgi-bin/lighttpd.cgi">Setup Lighttpd</a></p>"
+	echo "<p>When configuring Lighttpd you must specify and enable the domain name that you purchased and is assigned to your external IP. <a href=\"/cgi-bin/lighttpd.cgi\">Setup Lighttpd</a></p>"
 
 elif test -z "$domainip"; then
 	echo "<p>Could't get an IP for the <strong>$ext_domain</strong> specified domain. Is it not (yet?) DNS resolved?</p>"
@@ -304,28 +337,36 @@ elif test "$domainip" != "$myrealip"; then
 	echo "<p>Your external IP is $myrealip but it does not match the specified <strong>$ext_domain</strong> domain IP, which is $domainip.</p>"
 
 elif test "$ext_http_port" != "80" -a "$ext_https_port" != "443"; then
-	echo "<p>To validate your domain your router port 80 or 443 must be opened and forwarded to Lighttpd http listening port. <a href="/cgi-bin/lighttpd.cgi">Setup Lighttpd</a></p>"
+	echo "<p>To validate your domain your router port 80 or 443 must be opened and forwarded to Lighttpd http listening port. <a href=\"/cgi-bin/lighttpd.cgi\">Setup Lighttpd</a></p>"
 		
 else
-	if ! test -s /etc/acme.sh/$ext_domain/${ext_domain}.cer; then
+	if test -s $ACME_CONF/${ext_domain}_ecc/${ext_domain}.cer; then
+		cert_details $ACME_CONF/${ext_domain}_ecc/${ext_domain}.cer
+	elif test -s $ACME_CONF/$ext_domain/${ext_domain}.cer; then
+		cert_details $ACME_CONF/$ext_domain/${ext_domain}.cer
+	else
 		echo "<p>No certificate for domain <strong>$ext_domain</strong> found</p>"
 		nocert_dis="disabled"
-	else
-		cert_details /etc/acme.sh/$ext_domain/${ext_domain}.cer
+		bits=256
+	fi
 	
-		echo "<p>Issued by <strong>$ICN</strong> for a host with names of <strong>$(echo $san | sed 's/ /, /g')</strong>, with <strong> $bits</strong> bit, valid until <strong>$notAfter</strong>.</p>"
+	if ! test "$nocert_dis" = "disabled"; then
+		echo "<p>Type <strong> $crbits</strong> bit, issued by <strong>$ICN/$IO</strong> for a host with names of <strong>$(echo $san | sed 's/ /, /g')</strong>, valid until <strong>$notAfter</strong>.</p>"
 		getcert_dis="disabled"
 	fi
 	
 	cat<<-EOF
 		<table>
-		<tr><td>Request from Let's Encrypt a new certificate for this domain </td><td><input $getcert_dis type=submit name=getCert value="getCert" onclick="return confirm('Getting a certificate can take from 30 seconds to a few minutes.')" $(ttip get_tt)></td></tr>
-		<tr><td>The certificate validity date is approaching, forcibly renew it (cron should have done it) </td><td><input $nocert_dis type=submit name=renewCert value="renewCert" $(ttip renew_tt)></td></tr>
+		<tr><td>Request from Let's Encrypt a new certificate with $(sel_bits $bits nbits_le) bits for this domain </td><td><input $getcert_dis type=submit name=getCert value="getCert" onclick="return confirm('Getting a certificate can take from 30 seconds to a few minutes.')" $(ttip get_tt)></td></tr>
+		<tr><td>The certificate validity date is approaching, forcibly renew it (cron should do it) </td><td><input $nocert_dis type=submit name=renewCert value="renewCert" $(ttip renew_tt)></td></tr>
 		<tr><td>The box or the certificate private key has been compromised, revoke and remove it </td><td><input $nocert_dis type=submit name=revokeCert value="revokeCert" $(ttip revoke_tt)></td></tr>
 		<tr><td>The certificate has expired or has been revoked or I don't need it anymore,  remove it </td><td><input $nocert_dis type=submit name=removeCert value="removeCert" $(ttip remove_tt)></td></tr>
 		</table>
 		<input type=hidden name=ext_domain value="$ext_domain">
 		<input type=hidden name=server_root value="$server_root">
+		<input type=hidden name=alpndir value="$alpndir">
+		<input type=hidden name=http_port value="$http_port">
+		<input type=hidden name=https_port value="$https_port">
 		<input type=hidden name=MAIL_TO value="$MAIL_TO">
 		<input type=hidden name=MAIL_FROM value="$MAIL_FROM">
 	EOF
