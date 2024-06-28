@@ -1,7 +1,7 @@
 Package: dns-323-321-compat
 Description: Complementary needed packages for the DNS-323/321
 Version: 0.1
-Depends: at, cifs-utils, nfs-utils, inadyn-mt, openssh-sftp, vsftpd, stunnel, rsync, ntfs-3g, smartmontools, samba4 
+Depends: at, cifs-utils, nfs-utils, openssh-sftp, vsftpd, stunnel, rsync, ntfs-3g, smartmontools, samba4 
 Architecture: arm
 Priority: important
 Section: admin
