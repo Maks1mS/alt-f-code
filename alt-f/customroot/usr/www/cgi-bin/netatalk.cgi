@@ -59,7 +59,7 @@ cat<<EOF
 		    start_dir = document.getElementById(input_id).value;
 		    if (start_dir == "")
 		    	start_dir="/mnt";
-			window.open("browse_dir.cgi?id=" + input_id + "?browse=" + start_dir, "Browse", "scrollbars=yes, width=500, height=500");
+			window.open("browse_dir.cgi?id=" + input_id + "&browse=" + start_dir, "Browse", "scrollbars=yes, width=500, height=500");
 			return false;
 		}
 		function toogle(cnt) {

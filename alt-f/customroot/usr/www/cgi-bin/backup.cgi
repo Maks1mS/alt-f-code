@@ -58,7 +58,7 @@ cat<<EOF
 				document.getElementById(browse_id).disabled = false
 		}
 		function browse_dir(eid, sdir) {
-			window.open("browse_dir.cgi?id=" + eid + "?browse=" + sdir, "Browse", "scrollbars=yes, width=500, height=500");
+			window.open("browse_dir.cgi?id=" + eid + "&browse=" + sdir, "Browse", "scrollbars=yes, width=500, height=500");
 			return false
 		}
 		function browse_popup(type_id, input_id, host_id) {
@@ -75,15 +75,15 @@ cat<<EOF
 			    start_dir = document.getElementById(input_id).value;
 			    if (start_dir == "")
 			    	start_dir="/mnt";
-				window.open("browse_dir.cgi?id=" + input_id + "?browse=" + start_dir, "Browse", "scrollbars=yes, width=500, height=500");
+				window.open("browse_dir.cgi?id=" + input_id + "&browse=" + start_dir, "Browse", "scrollbars=yes, width=500, height=500");
 				return false;
 			} else if (op == "NFS") {
 				//function browse_nfs_popup(host_id, dir_id) {
-				window.open("browse_nfs.cgi?id1=" + host_id + "?id2=" + input_id, "Browse", "scrollbars=yes, width=500, height=500");
+				window.open("browse_nfs.cgi?id1=" + host_id + "&id2=" + input_id, "Browse", "scrollbars=yes, width=500, height=500");
 				return false;
 			} else if (op == "CIFS") {
 				//function browse_cifs_popup(host_id, dir_id) {
-				window.open("browse_cifs.cgi?id1=" + host_id + "?id2=" + input_id, "Browse", "scrollbars=yes, width=500, height=500");
+				window.open("browse_cifs.cgi?id1=" + host_id + "&id2=" + input_id, "Browse", "scrollbars=yes, width=500, height=500");
 				return false;
 			}
 		}

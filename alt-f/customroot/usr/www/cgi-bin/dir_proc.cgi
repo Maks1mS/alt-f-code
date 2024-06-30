@@ -62,7 +62,7 @@ if test -n "$CreateDir"; then
 		if test $? != 0; then
 			msg "Creating failed:\n\n $res"
 		fi
-		HTTP_REFERER=$(echo "$HTTP_REFERER" | sed "s|?browse=.*|?browse=$newdir|")
+		HTTP_REFERER=$(echo "$HTTP_REFERER" | sed "s|\&browse=.*$|\&browse=$newdir|g")
 	else
 		msg "Can't create, parent folder\n   $bdir\ndoes not exists."
 	fi
@@ -93,7 +93,9 @@ elif test -n "$RenameDir"; then
 	if test $? != 0; then
 		msg "Renaming failed:\n\n $res"
 	fi
-	#HTTP_REFERER=$(echo "$HTTP_REFERER" | sed "s|?browse=.*|?browse=$newdir|")
+	
+	HTTP_REFERER=$(echo "$HTTP_REFERER" | sed 's|\&browse=.*$|\&browse='"$bdir"'|g')
+	#js_gotopage "$HTTP_REFERER"
 
 elif test -n "$DeleteDir"; then
 	if ! test -d "$wdir"; then
@@ -128,7 +130,7 @@ elif test -n "$DeleteDir"; then
 	while kill -0 $bpid >& /dev/null; do
 		op_free=$(df -Pm "$src_mp" | awk '/\/mnt\//{print $4}') 
 		op_rm=$((op_free - fs_free))
-		el=$((op_rm * 100 / src_sz))
+		el=$((op_rm * 100 / (src_sz+1)))
 		echo $el > /tmp/folders_op.$bpid
 		cat<<-EOF
 		<script type="text/javascript">
@@ -148,7 +150,7 @@ elif test -n "$DeleteDir"; then
 		msg "Deleting failed:\n\n $res"
 	fi
 
-	HTTP_REFERER=$(echo "$HTTP_REFERER" | sed 's|?browse=.*$|?browse='"$nbdir"'|')
+	HTTP_REFERER=$(echo "$HTTP_REFERER" | sed 's|\&browse=.*$|\&browse='"$nbdir"'|g')
 	js_gotopage "$HTTP_REFERER"
 
 elif test -n "$Copy" -o -n "$Move" -o -n "$CopyContent"; then
